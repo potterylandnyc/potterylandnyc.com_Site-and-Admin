@@ -2,4 +2,4 @@ name = "cold-truth-de01"
 compatibility_date = "2026-08-30"
 
 [assets]
-directory = "./"
+directory = "./public/"
