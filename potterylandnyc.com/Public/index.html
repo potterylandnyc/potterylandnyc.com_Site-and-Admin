@@ -218,15 +218,15 @@ footer strong { display: block; color: white; font-family: var(--font-heading); 
 
 <header>
   <div class="header-inner">
-    <div class="logo">Pottery & Glass Land<span id="header-tagline">Brooklyn's Creative Studio</span></div>
+    <a href="/" class="logo">Pottery & Glass Land<span id="header-tagline">Brooklyn's Creative Studio</span></a>
     <nav>
       <a href="#walkin">Walk-Ins</a>
       <a href="#classes">Classes</a>
-      <a href="/sunday-clubs.html" class="nav-highlight">Sunday Clubs</a>
+      <a href="/sunday-clubs.html" class="nav-highlight" id="nav-clubs" style="display:none;">Sunday Clubs</a>
       <a href="#parties">Parties</a>
       <a href="#contact">Contact</a>
     </nav>
-    <a href="#classes" class="btn btn-primary">Book a Class</a>
+    <a href="#classes" class="btn btn-primary" id="header-cta">Book a Class</a>
   </div>
 </header>
 
@@ -236,7 +236,7 @@ footer strong { display: block; color: white; font-family: var(--font-heading); 
     <h1>Make something<br>beautiful today.</h1>
     <p class="hero-sub">Paint pottery, throw on the wheel, build with clay, paint glass, canvas, and more — walk in anytime or book a class or party.</p>
     <div class="hero-actions">
-      <a href="/sunday-clubs.html" class="btn" style="background:white;color:var(--color-primary);font-weight:700;">🎨 Register for Sunday Clubs →</a>
+      <a href="/sunday-clubs.html" class="btn" id="hero-clubs-btn" style="background:white;color:var(--color-primary);font-weight:700;display:none;">🎨 Register for Sunday Clubs →</a>
       <a href="#classes" class="btn btn-accent">See Classes & Book</a>
       <a href="#contact" class="btn btn-outline" style="color:white;border-color:rgba(255,255,255,0.5);">Book a Party</a>
     </div>
@@ -246,7 +246,7 @@ footer strong { display: block; color: white; font-family: var(--font-heading); 
   </div>
 </section>
 
-<div class="clubs-banner">
+<div class="clubs-banner" id="clubs-banner-wrap" style="display:none;">
   <div class="cb-inner">
     <div class="cb-text">
       <div class="cb-eyebrow">Now enrolling · Fall 2026</div>
@@ -432,13 +432,72 @@ function currentSeasonLabel() {
   return season + ' ' + d.getFullYear();
 }
 
+function fmtRange(a, b) {
+  if (!a || !b) return '';
+  const A = new Date(a + 'T12:00:00'), B = new Date(b + 'T12:00:00');
+  const sameYear = A.getFullYear() === B.getFullYear();
+  const sOpt = sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' };
+  return A.toLocaleDateString('en-US', sOpt) + ' – ' + B.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Seasonal takeover: while a program's promo_until is in the future, the header CTA,
+// nav link, hero button and banner switch to promote it. Otherwise header = "Book a Class".
+async function loadPromo() {
+  if (!sb) return;
+  const today = new Date().toISOString().slice(0, 10);
+  let p = null;
+  try {
+    const { data } = await sb.from('pgl_programs')
+      .select('name,promo_label,page_url,promo_until,register_by,start_date,end_date,session_count')
+      .eq('active', true).gte('promo_until', today).order('sort_order').limit(1);
+    p = data && data[0];
+  } catch (e) { p = null; }
+
+  const cta = document.getElementById('header-cta');
+  const navLink = document.getElementById('nav-clubs');
+  const heroBtn = document.getElementById('hero-clubs-btn');
+  const banner = document.getElementById('clubs-banner-wrap');
+
+  if (!p) {
+    if (cta) { cta.textContent = 'Book a Class'; cta.setAttribute('href', '#classes'); }
+    if (navLink) navLink.style.display = 'none';
+    if (heroBtn) heroBtn.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+    return;
+  }
+
+  const label = p.promo_label || p.name || 'Register';
+  const url = p.page_url || '#classes';
+  const waitlist = p.register_by && today > p.register_by; // registration closed → promote the waitlist
+
+  if (cta) { cta.textContent = label; cta.setAttribute('href', url); }
+  if (navLink) { navLink.textContent = label; navLink.setAttribute('href', url); navLink.style.display = ''; }
+  if (heroBtn) {
+    heroBtn.setAttribute('href', url);
+    heroBtn.textContent = waitlist ? ('🎨 ' + label + ' — join the waitlist →') : ('🎨 Register for ' + label + ' →');
+    heroBtn.style.display = '';
+  }
+  if (banner) {
+    banner.style.display = '';
+    const range = fmtRange(p.start_date, p.end_date);
+    const eyebrow = banner.querySelector('.cb-eyebrow');
+    const title = banner.querySelector('.cb-title');
+    const sub = banner.querySelector('.cb-sub');
+    const btn = banner.querySelector('.cb-btn');
+    if (eyebrow) eyebrow.textContent = waitlist ? 'Registration closed' : 'Now enrolling';
+    if (title) title.textContent = waitlist ? (p.name + ' — join the waiting list') : (p.name + " — reserve your child's spot");
+    if (sub) sub.textContent = (p.session_count ? p.session_count + '-session program' : 'Seasonal program') + (range ? ' · ' + range : '');
+    if (btn) { btn.setAttribute('href', url); btn.textContent = waitlist ? 'Join the waitlist →' : 'Register now →'; }
+  }
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   const seasonEl = document.getElementById('classes-season-label');
   if (seasonEl) seasonEl.textContent = currentSeasonLabel() + ' — Reservation required';
   renderHours(DEFAULT_HOURS, []);
   if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    await Promise.all([loadSchedule(), loadDiscountRules(), loadSiteData(), loadSiteCopy()]);
+    await Promise.all([loadSchedule(), loadDiscountRules(), loadSiteData(), loadSiteCopy(), loadPromo()]);
   } else {
     document.getElementById('schedule-container').innerHTML =
       '<div style="text-align:center;padding:48px;color:var(--color-text-muted);"><p style="font-size:15px;font-weight:600;margin-bottom:8px;">Schedule coming soon!</p><p>Contact us directly to book a class.</p></div>';

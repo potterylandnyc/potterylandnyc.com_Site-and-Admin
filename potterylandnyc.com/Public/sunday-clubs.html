@@ -89,6 +89,13 @@ main { padding: 36px 0 64px; }
 .success-card p { font-size: 15px; color: var(--color-text-muted); max-width: 460px; margin: 0 auto 10px; }
 .success-card .home-btn { display: inline-block; margin-top: 18px; padding: 12px 26px; border-radius: 100px; background: var(--color-primary); color: white; font-size: 14px; font-weight: 600; }
 
+.closed-card { text-align: center; padding: 40px 26px; }
+.closed-card .closed-icon { font-size: 52px; margin-bottom: 14px; }
+.closed-card h2 { font-family: var(--font-heading); font-size: 24px; color: var(--color-primary); margin-bottom: 10px; }
+.closed-card p { font-size: 15px; color: var(--color-text-muted); max-width: 480px; margin: 0 auto 10px; }
+.reveal-waitlist-btn { margin-top: 18px; padding: 13px 28px; border-radius: 100px; background: var(--color-primary); color: white; border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+.reveal-waitlist-btn:hover { opacity: 0.9; }
+
 footer { background: #1A1F3C; color: rgba(255,255,255,0.6); padding: 30px 20px; text-align: center; font-size: 13px; }
 footer a { color: rgba(255,255,255,0.55); }
 
@@ -102,7 +109,7 @@ footer a { color: rgba(255,255,255,0.55); }
 
 <header>
   <div class="header-inner">
-    <div class="logo">Pottery &amp; Glass Land<span>Brooklyn's Creative Studio</span></div>
+    <a href="/" class="logo">Pottery &amp; Glass Land<span>Brooklyn's Creative Studio</span></a>
     <a href="/" class="back-link">← Back to site</a>
   </div>
 </header>
@@ -181,6 +188,27 @@ footer a { color: rgba(255,255,255,0.55); }
       <a href="/" class="home-btn">Back to home</a>
     </div>
 
+    <!-- CLOSED / WAITLIST -->
+    <div class="card closed-card" id="closed-card" style="display:none;">
+      <div class="closed-icon">🔒</div>
+      <h2 id="closed-title">Reservations are closed</h2>
+      <p id="closed-msg">Registration for this program has closed.</p>
+      <p>If you'd like more information or to be added to the waiting list, leave your details and we'll reach out.</p>
+      <button type="button" class="reveal-waitlist-btn" id="reveal-waitlist" onclick="showWaitlist()">Join the waiting list / request info</button>
+
+      <form id="waitlist-form" style="display:none;text-align:left;max-width:460px;margin:24px auto 0;" onsubmit="submitWaitlist(event)">
+        <div class="form-group"><label>Name <span class="req">*</span></label><input type="text" id="wl-name" required></div>
+        <div class="form-row">
+          <div class="form-group"><label>Phone</label><input type="tel" id="wl-phone" placeholder="(718) 555-0000"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="wl-email" placeholder="you@email.com"></div>
+        </div>
+        <div class="form-group"><label>Anything you'd like us to know?</label><input type="text" id="wl-msg" placeholder="Optional"></div>
+        <div class="form-error" id="wl-error"></div>
+        <button type="submit" class="submit-btn" id="wl-submit">Add me to the list</button>
+      </form>
+      <div id="wl-success" class="form-success" style="display:none;margin-top:16px;">✓ Thanks! You're on the list — we'll be in touch.</div>
+    </div>
+
   </div>
 </main>
 
@@ -205,7 +233,11 @@ const FALLBACK_PROGRAM = {
   sibling_min: 2,
   tax_rate: 0.08875,
   start_date: null,
-  end_date: null
+  end_date: null,
+  register_by: null,
+  promo_until: null,
+  promo_label: 'Sunday Clubs',
+  page_url: '/sunday-clubs.html'
 };
 
 let sb = null;
@@ -220,7 +252,61 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) { /* keep fallback */ }
   applyProgramCopy();
   addChild(); // start with one child
+  checkOpen();
 });
+
+function checkOpen() {
+  const rb = program.register_by;
+  const today = new Date().toISOString().slice(0, 10);
+  const closed = rb && today > rb; // registration deadline has passed
+  if (!closed) return;
+  const nm = program.name || 'this program';
+  document.getElementById('form-wrap').style.display = 'none';
+  document.getElementById('closed-card').style.display = 'block';
+  document.getElementById('closed-title').textContent = 'Reservations are closed for ' + nm;
+  document.getElementById('closed-msg').textContent = 'Registration for ' + nm + ' has closed.';
+  const sub = document.getElementById('hero-sub');
+  if (sub) sub.textContent = "Registration is closed for this program — join the waiting list below and we'll be in touch.";
+}
+
+function showWaitlist() {
+  document.getElementById('waitlist-form').style.display = 'block';
+  document.getElementById('reveal-waitlist').style.display = 'none';
+}
+
+async function submitWaitlist(e) {
+  e.preventDefault();
+  const name = document.getElementById('wl-name').value.trim();
+  const phone = document.getElementById('wl-phone').value.trim();
+  const email = document.getElementById('wl-email').value.trim();
+  const msg = document.getElementById('wl-msg').value.trim();
+  const err = document.getElementById('wl-error');
+  err.style.display = 'none';
+  if (!name) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
+  if (!phone && !email) { err.textContent = 'Please give us a phone or email so we can reach you.'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('wl-submit'); btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const parts = name.split(' ');
+    const payload = {
+      first_name: parts[0],
+      last_name: parts.slice(1).join(' ') || '',
+      email: email || null,
+      phone: phone || null,
+      interest: (program.name || 'Sunday Clubs') + ' — Waitlist',
+      message: 'Waitlist / more-info request' + (msg ? ': ' + msg : ''),
+      status: 'new'
+    };
+    const { error } = await sb.from('pgl_inquiries').insert([payload]);
+    if (error) throw error;
+    document.getElementById('waitlist-form').style.display = 'none';
+    document.getElementById('wl-success').style.display = 'block';
+  } catch (_) {
+    btn.disabled = false; btn.textContent = 'Add me to the list';
+    err.textContent = 'Sorry, something went wrong. Please call us at (718) 975-3130.';
+    err.style.display = 'block';
+  }
+}
 
 function fmtDateRange(a, b) {
   if (!a || !b) return '';
