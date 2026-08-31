@@ -161,6 +161,11 @@ tr:hover td { background: var(--bg); }
 .sc-reg.open .sc-detail { display: block; }
 .sc-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px; }
 @media (max-width: 720px) { .sc-detail-grid { grid-template-columns: 1fr; } }
+.sc-reg-actions { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-top: 1px solid var(--border); background: var(--bg); flex-wrap: wrap; }
+.sc-status-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.sc-status-select { padding: 8px 34px 8px 12px; border: 1px solid var(--primary); border-radius: 7px; background-color: var(--surface); font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23185FA5' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat: no-repeat; background-position: right 11px center; }
+.sc-status-select:hover { background-color: var(--bg); }
+.sc-reg-actions .sc-delete-btn { margin-left: auto; }
 .sc-sub { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
 .sc-child { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
 .sc-child .cname { font-weight: 600; }
@@ -1153,15 +1158,19 @@ function renderRegCard(s){
     '</div>' +
   '</div>' +
   '<div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:14px;">' +
-    '<label style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--text);">Status:</label>' +
-    '<select onchange="scSetStatus(\''+s.id+'\',this.value)" style="max-width:240px;">' +
-      ['pending','confirmed','cancelled'].map(function(st){ return '<option value="'+st+'"'+(s.status===st?' selected':'')+'>'+scStatusOptionLabel(st)+'</option>'; }).join('') +
-    '</select>' +
     '<input type="text" placeholder="Staff note" id="note-'+s.id+'" value="'+scEsc(s.staff_notes||'')+'" style="flex:1;min-width:160px;">' +
     '<button class="btn btn-ghost btn-sm" onclick="scSaveNote(\''+s.id+'\')">Save note</button>' +
   '</div></div>';
 
-  return '<div class="sc-reg'+(open?' open':'')+'" id="sc-reg-'+s.id+'">'+head+detail+'</div>';
+  var actions = '<div class="sc-reg-actions">' +
+    '<label class="sc-status-label">Status</label>' +
+    '<select class="sc-status-select" onchange="scSetStatus(\''+s.id+'\',this.value)">' +
+      ['pending','confirmed','cancelled'].map(function(st){ return '<option value="'+st+'"'+(s.status===st?' selected':'')+'>'+scStatusOptionLabel(st)+'</option>'; }).join('') +
+    '</select>' +
+    '<button class="btn btn-danger btn-sm sc-delete-btn" onclick="scDelete(\''+s.id+'\')">Delete</button>' +
+  '</div>';
+
+  return '<div class="sc-reg'+(open?' open':'')+'" id="sc-reg-'+s.id+'">'+head+actions+detail+'</div>';
 }
 
 function scToggle(id){ openSignupIds[id]=!openSignupIds[id]; var el=document.getElementById('sc-reg-'+id); if(el) el.classList.toggle('open'); }
@@ -1202,6 +1211,12 @@ async function scOverride(id){
 }
 async function scSetStatus(id,status){
   var r = await sbClient.from('pgl_signups').update({ status:status, updated_at:new Date().toISOString() }).eq('id',id);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  await loadSignups();
+}
+async function scDelete(id){
+  if (!confirm('Permanently delete this registration? This removes it and any recorded payments, and cannot be undone.')) return;
+  var r = await sbClient.from('pgl_signups').delete().eq('id',id);
   if (r.error){ alert('Error: '+r.error.message); return; }
   await loadSignups();
 }
