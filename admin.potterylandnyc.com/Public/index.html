@@ -501,6 +501,7 @@ var specificDates = [];
 var currentDateMode = 'single';
 
 window.addEventListener('DOMContentLoaded', function() {
+  scMarkPendingTab(); // capture #sunday-clubs before anything can clear the hash (survives Google sign-in redirect)
   sbClient = window.supabase.createClient(SB_URL, SB_KEY);
   renderHoursEditor();
   renderHolidayEditor();
@@ -516,6 +517,22 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'signups') loadSignups();
 }
+
+// --- Deep link: /#sunday-clubs (or #signups) opens the Sunday Clubs tab ---
+function scWantSignups(){ return /^#(sunday-clubs|signups)$/.test(location.hash || ''); }
+function scMarkPendingTab(){ if (scWantSignups()){ try { sessionStorage.setItem('pgl_open_tab','signups'); } catch(e){} } }
+function scApplyPendingTab(){
+  var want = false;
+  try { want = sessionStorage.getItem('pgl_open_tab') === 'signups'; } catch(e){}
+  if (!want) want = scWantSignups();
+  if (want){ try { sessionStorage.removeItem('pgl_open_tab'); } catch(e){} switchTab('signups'); }
+}
+window.addEventListener('hashchange', function(){
+  if (!scWantSignups()) return;
+  var app = document.getElementById('app');
+  if (app && app.style.display !== 'none') switchTab('signups'); // already open & signed in
+  else scMarkPendingTab();                                       // remember for after sign-in
+});
 
 function loadAll() { loadClasses(); loadSettings(); loadDiscounts(); loadPricing(); loadInquiries(); }
 
@@ -988,6 +1005,7 @@ async function gateApp(){
   login.style.display='none'; loading.style.display='none'; app.style.display='block';
   conn.textContent = 'Connected'; conn.innerHTML = '&#9899; Connected';
   loadAll();
+  scApplyPendingTab();
 }
 function renderAuthUI(){
   var el = document.getElementById('auth-area');
@@ -1109,6 +1127,7 @@ function renderRegCard(s){
   var head = '<div class="sc-reg-head" onclick="scToggle(\''+s.id+'\')">' +
     '<div class="sc-reg-main">' +
       '<div class="sc-reg-name">'+scEsc(s.parent_first)+' '+scEsc(s.parent_last)+' '+scStatusBadge(s.status)+
+        (s.ref_code?' <span class="badge" style="background:#EEF2F7;color:#33415C;font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:0.02em;">'+scEsc(s.ref_code)+'</span>':'')+
         (s.opwdd_count?' <span class="badge" style="background:#EEEDFE;color:#3C3489;">OPWDD &times;'+s.opwdd_count+'</span>':'')+'</div>' +
       '<div class="sc-reg-meta">'+kids.length+' child'+(kids.length!==1?'ren':'')+(ages.length?' · ages '+ages.join(', '):'')+' · '+created+'</div>' +
     '</div>' +
