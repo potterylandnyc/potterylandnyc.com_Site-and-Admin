@@ -136,7 +136,7 @@ tr:hover td { background: var(--bg); }
 .specific-date-tag { display: inline-flex; align-items: center; gap: 4px; background: #EEF0F9; border: 1px solid #C5CBE8; border-radius: 6px; padding: 4px 10px; font-size: 12px; }
 .specific-date-tag button { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; padding: 0; }
 .recur-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
-/* --- Sunday Clubs tab --- */
+/* --- Sunday Club tab --- */
 .sc-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .sc-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .sc-stat .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
@@ -200,7 +200,7 @@ tr:hover td { background: var(--bg); }
       <button class="tab" onclick="switchTab('discounts')">&#128176; Discounts</button>
       <button class="tab" onclick="switchTab('pricing')">&#128176; Pricing</button>
       <button class="tab" onclick="switchTab('inquiries')">&#128140; Inquiries</button>
-      <button class="tab" onclick="switchTab('signups')">&#128197; Sunday Clubs</button>
+      <button class="tab" onclick="switchTab('signups')">&#128197; Sunday Club</button>
     </div>
 
     <!-- SCHEDULE -->
@@ -453,11 +453,11 @@ tr:hover td { background: var(--bg); }
       </div>
     </div>
 
-    <!-- SUNDAY CLUBS -->
+    <!-- SUNDAY CLUB -->
     <div class="tab-panel" id="tab-signups">
       <div class="card">
         <div class="card-title">
-          <span>Sunday Clubs Registrations</span>
+          <span>Sunday Club Registrations</span>
           <button class="btn btn-ghost btn-sm" onclick="loadSignups()">Refresh</button>
         </div>
         <div id="signups-body">
@@ -518,8 +518,8 @@ function switchTab(name) {
   if (name === 'signups') loadSignups();
 }
 
-// --- Deep link: /#sunday-clubs (or #signups) opens the Sunday Clubs tab ---
-function scWantSignups(){ return /^#(sunday-clubs|signups)$/.test(location.hash || ''); }
+// --- Deep link: /#sunday-club (or #sunday-clubs / #signups) opens the Sunday Club tab ---
+function scWantSignups(){ return /^#(sunday-club|sunday-clubs|signups)$/.test(location.hash || ''); }
 function scMarkPendingTab(){ if (scWantSignups()){ try { sessionStorage.setItem('pgl_open_tab','signups'); } catch(e){} } }
 function scApplyPendingTab(){
   var want = false;
@@ -951,7 +951,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeEditModal();
 });
 
-// ==================== SUNDAY CLUBS ====================
+// ==================== SUNDAY CLUB ====================
 var authUser = null;
 var signupsData = [];
 var paymentsBySignup = {};
@@ -1028,7 +1028,7 @@ function scGate(msg){
 
 async function loadSignups(){
   if (!sbClient) return;
-  if (!authUser){ scGate('Sign in with your staff Google account to view Sunday Clubs registrations.'); return; }
+  if (!authUser){ scGate('Sign in with your staff Google account to view Sunday Club registrations.'); return; }
   var r1 = await sbClient.from('pgl_signups').select('*').order('created_at',{ascending:false});
   if (r1.error){ scGate('Your account isn\'t authorized to view registrations. Ask an admin to add ' + scEsc(authUser.email) + ' to staff access.'); return; }
   signupsData = r1.data || [];
