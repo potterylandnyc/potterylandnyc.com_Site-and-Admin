@@ -1195,11 +1195,24 @@ function renderRoster(){
   return '<div class="table-wrap"><table><thead><tr><th>Child</th><th>Grade</th><th>School</th><th>Parent</th><th>Status</th></tr></thead><tbody>'+html+'</tbody></table></div>';
 }
 
+// Best-effort notification ping — never blocks the staff action. The function looks
+// up the registration by id and emails the parent (and, for new signups, staff).
+function scNotify(payload){
+  try {
+    return fetch(SB_URL + '/functions/v1/notify-signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SB_KEY },
+      body: JSON.stringify(payload)
+    }).catch(function(){});
+  } catch (_) { }
+}
 async function scAddPayment(id){
   var amt = parseFloat(document.getElementById('pay-amt-'+id).value);
   if (!amt || amt<=0){ alert('Enter a payment amount.'); return; }
-  var r = await sbClient.from('pgl_signup_payments').insert([{ signup_id:id, amount:amt, method:document.getElementById('pay-method-'+id).value, note:document.getElementById('pay-note-'+id).value, created_by:(authUser?authUser.email:'') }]);
+  var method = document.getElementById('pay-method-'+id).value;
+  var r = await sbClient.from('pgl_signup_payments').insert([{ signup_id:id, amount:amt, method:method, note:document.getElementById('pay-note-'+id).value, created_by:(authUser?authUser.email:'') }]);
   if (r.error){ alert('Error: '+r.error.message); return; }
+  await scNotify({ signup_id:id, type:'payment', payment_amount:amt, payment_method:method });
   await loadSignups();
 }
 async function scOverride(id){
@@ -1212,6 +1225,7 @@ async function scOverride(id){
 async function scSetStatus(id,status){
   var r = await sbClient.from('pgl_signups').update({ status:status, updated_at:new Date().toISOString() }).eq('id',id);
   if (r.error){ alert('Error: '+r.error.message); return; }
+  if (status === 'confirmed'){ await scNotify({ signup_id:id, type:'confirmed' }); }
   await loadSignups();
 }
 async function scDelete(id){

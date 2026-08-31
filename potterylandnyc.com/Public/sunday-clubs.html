@@ -535,6 +535,11 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     source: 'website'
   };
 
+  // Generate the registration's ID up front so we can tell the notify function
+  // which record to email about (the public role can't read the row back after insert).
+  var signupId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : null;
+  if (signupId) payload.id = signupId;
+
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.textContent = 'Submitting…';
@@ -544,18 +549,17 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     const { error } = await sb.from('pgl_signups').insert([payload]);
     if (error) throw error;
 
-    // Best-effort email ping — never blocks the registration, sends no child details.
-    try {
-      await fetch(NOTIFY_FUNCTION, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
-        body: JSON.stringify({
-          parent_name: first + ' ' + last.charAt(0) + '.',
-          child_count: children.length,
-          program_name: program.name
-        })
-      });
-    } catch (_) { /* ignore — email is optional */ }
+    // Best-effort email ping — never blocks the registration. Sends the record's ID;
+    // the function looks up the details and emails staff + a thank-you to the parent.
+    if (signupId) {
+      try {
+        await fetch(NOTIFY_FUNCTION, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+          body: JSON.stringify({ signup_id: signupId, type: 'new' })
+        });
+      } catch (_) { /* ignore — email is optional */ }
+    }
 
     document.getElementById('form-wrap').style.display = 'none';
     document.getElementById('success-card').style.display = 'block';
