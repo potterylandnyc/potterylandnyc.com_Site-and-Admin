@@ -129,6 +129,18 @@ footer a { color: rgba(255,255,255,0.55); }
     <div id="form-wrap">
       <form id="reg-form" autocomplete="on">
 
+        <!-- LOCATION -->
+        <div class="card">
+          <h2>Location</h2>
+          <p class="card-sub">Which studio would you like to register for?</p>
+          <div class="form-group">
+            <label>Studio <span class="req">*</span></label>
+            <select id="branch-select" required>
+              <option value="">Select a location…</option>
+            </select>
+          </div>
+        </div>
+
         <!-- PARENT -->
         <div class="card">
           <h2>Parent / guardian</h2>
@@ -183,7 +195,7 @@ footer a { color: rgba(255,255,255,0.55); }
     <div class="card success-card" id="success-card" style="display:none;">
       <div class="check">✓</div>
       <h2>Registration received!</h2>
-      <p>Thank you — we've got your Sunday Club registration request.</p>
+      <p id="success-msg">Thank you — we've got your Sunday Club registration request.</p>
       <p><strong>What happens next:</strong> a member of our team will reach out to you by your preferred contact method to confirm your child's spot and arrange payment. Your place is held once we've connected.</p>
       <a href="/" class="home-btn">Back to home</a>
     </div>
@@ -243,6 +255,13 @@ const FALLBACK_PROGRAM = {
 let sb = null;
 let program = FALLBACK_PROGRAM;
 let childSeq = 0;
+let branches = [];
+
+// Fallback if branches can't be loaded from the database.
+const FALLBACK_BRANCHES = [
+  { id: 'fb', label: 'Flatbush', address: '1562 Coney Island Ave. • Brooklyn, NY 11230' },
+  { id: 'ch', label: 'Crown Heights', address: '982 S. Johns Pl • Brooklyn, NY 11213' }
+];
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -250,10 +269,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { data } = await sb.from('pgl_programs').select('*').eq('active', true).order('sort_order').limit(1);
     if (data && data.length) program = data[0];
   } catch (e) { /* keep fallback */ }
+  try {
+    const { data: bdata } = await sb.from('branches_public').select('*').order('sort_order');
+    if (bdata && bdata.length) branches = bdata;
+  } catch (e) { /* keep fallback */ }
+  if (!branches.length) branches = FALLBACK_BRANCHES;
+  populateBranchSelect();
   applyProgramCopy();
   addChild(); // start with one child
   checkOpen();
 });
+
+function populateBranchSelect() {
+  const sel = document.getElementById('branch-select');
+  if (!sel) return;
+  branches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = b.label + (b.address ? ' — ' + b.address : '');
+    sel.appendChild(opt);
+  });
+}
 
 function checkOpen() {
   const rb = program.register_by;
@@ -495,6 +531,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   setError('');
 
+  const branchId = document.getElementById('branch-select').value;
   const first = document.getElementById('parent-first').value.trim();
   const last = document.getElementById('parent-last').value.trim();
   const phone = document.getElementById('parent-phone').value.trim();
@@ -502,6 +539,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
   const notifyEl = document.querySelector('input[name="notify"]:checked');
   const notify = notifyEl ? notifyEl.value : 'Email';
 
+  if (!branchId) { setError('Please choose a location.'); return; }
   if (!first || !last || !phone || !email) { setError('Please fill in your name, phone, and email.'); return; }
 
   const children = collectChildren();
@@ -514,9 +552,11 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
   }
 
   const q = computeQuote(children);
+  const regId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : null;
   const payload = {
     program_id: program.id,
     program_name: program.name,
+    branch_id: branchId,
     parent_first: first,
     parent_last: last,
     parent_phone: phone,
@@ -532,6 +572,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     status: 'pending',
     source: 'website'
   };
+  if (regId) payload.id = regId;
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
@@ -539,22 +580,27 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
 
   try {
     if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { error } = await sb.from('pgl_signups').insert([payload]);
+    const { data: inserted, error } = await sb.from('pgl_signups').insert([payload]).select('id').single();
     if (error) throw error;
 
     // Best-effort email ping — never blocks the registration, sends no child details.
-    try {
-      await fetch(NOTIFY_FUNCTION, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
-        body: JSON.stringify({
-          parent_name: first + ' ' + last.charAt(0) + '.',
-          child_count: children.length,
-          program_name: program.name
-        })
-      });
-    } catch (_) { /* ignore — email is optional */ }
+    // notify-signup looks the registration up server-side by id, so it needs signup_id.
+    const newId = regId || (inserted && inserted.id);
+    if (newId) {
+      try {
+        await fetch(NOTIFY_FUNCTION, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+          body: JSON.stringify({ signup_id: newId, type: 'new' })
+        });
+      } catch (_) { /* ignore — email is optional */ }
+    }
 
+    const branch = branches.find(b => b.id === branchId);
+    const successP = document.getElementById('success-msg');
+    if (successP) {
+      successP.textContent = "Thank you — we've got your Sunday Club registration request" + (branch ? ' for ' + branch.label : '') + '.';
+    }
     document.getElementById('form-wrap').style.display = 'none';
     document.getElementById('success-card').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });

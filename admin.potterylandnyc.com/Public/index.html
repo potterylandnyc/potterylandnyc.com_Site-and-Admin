@@ -177,6 +177,34 @@ tr:hover td { background: var(--bg); }
 .sc-gate { text-align: center; padding: 50px 24px; }
 .sc-gate .btn { margin-top: 14px; }
 .age-divider td { background: var(--bg); font-weight: 700; color: var(--primary); font-size: 12px; }
+/* --- Add reservation modal --- */
+.sc-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; align-items:flex-start; justify-content:center; padding:24px; overflow-y:auto; }
+.sc-modal-overlay.open { display:flex; }
+.sc-modal { background:white; border-radius:12px; padding:28px; width:100%; max-width:700px; position:relative; margin:20px 0 40px; }
+.sc-modal-close { position:absolute; top:14px; right:16px; background:none; border:none; font-size:24px; cursor:pointer; color:var(--muted); }
+.sc-modal h3 { font-size:18px; font-weight:700; color:var(--primary); margin-bottom:4px; }
+.sc-modal .sc-modal-sub { font-size:13px; color:var(--muted); margin-bottom:18px; }
+.sc-modal .sc-sub { font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); font-weight:700; margin:18px 0 10px; }
+.sc-search-wrap { position:relative; margin-bottom:16px; }
+.sc-search-results { position:absolute; left:0; right:0; top:100%; background:white; border:1px solid var(--border); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.12); z-index:10; max-height:220px; overflow-y:auto; display:none; }
+.sc-search-results.open { display:block; }
+.sc-search-item { padding:9px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border); }
+.sc-search-item:last-child { border-bottom:none; }
+.sc-search-item:hover { background:var(--bg); }
+.sc-search-item .sub { font-size:12px; color:var(--muted); }
+.sc-matched-tag { display:inline-flex; align-items:center; gap:6px; background:var(--success-bg); color:var(--success); border-radius:100px; padding:5px 12px; font-size:12px; font-weight:600; margin-bottom:14px; }
+.sc-matched-tag button { background:none; border:none; color:inherit; cursor:pointer; font-size:13px; text-decoration:underline; padding:0; }
+.sc-add-child { border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px; background:var(--bg); }
+.sc-add-child-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.sc-add-child-head h4 { font-size:13px; font-weight:700; color:var(--primary); }
+.sc-add-child.is-opwdd { border-color:var(--primary); background:#F4F5FC; }
+.sc-confirm-flag { border-color:#E07B39 !important; background:#FFF8E7 !important; }
+.sc-confirm-note { font-size:12px; color:#8A6D00; margin-top:4px; }
+.sc-opwdd-hint { font-size:12px; color:#3C3489; margin-top:6px; background:#EEEDFE; border-radius:6px; padding:6px 10px; }
+.sc-price-preview { background:var(--primary); color:white; border-radius:10px; padding:16px 18px; margin:16px 0; }
+.sc-price-preview .row { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; opacity:0.92; }
+.sc-price-preview .row.total { font-size:17px; font-weight:700; opacity:1; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.25); }
+.sc-override-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
 </style>
 </head>
 <body>
@@ -458,7 +486,10 @@ tr:hover td { background: var(--bg); }
       <div class="card">
         <div class="card-title">
           <span>Sunday Club Registrations</span>
-          <button class="btn btn-ghost btn-sm" onclick="loadSignups()">Refresh</button>
+          <span style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="scOpenAddModal()">+ Add reservation</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSignups()">Refresh</button>
+          </span>
         </div>
         <div id="signups-body">
           <div class="empty"><div class="empty-icon">&#128197;</div><p>Loading…</p></div>
@@ -948,7 +979,7 @@ function saveEdit() {
 }
 
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeEditModal();
+  if (e.key === 'Escape') { closeEditModal(); scCloseAddModal(); }
 });
 
 // ==================== SUNDAY CLUB ====================
@@ -956,9 +987,16 @@ var authUser = null;
 var signupsData = [];
 var paymentsBySignup = {};
 var customersCache = null;
+var branchesCache = null;
 var signupView = 'registrations';
 var signupStatusFilter = 'all';
+var signupBranchFilter = 'all';
 var openSignupIds = {};
+// --- Add-reservation modal state ---
+var scAddMatchedCustomerId = null;
+var scAddKnownChildren = [];
+var scAddActiveProgram = null;
+var scAddChildSeq = 0;
 
 function scEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function scMoney(n){ return '$' + (Number(n)||0).toFixed(2); }
@@ -1036,8 +1074,14 @@ async function loadSignups(){
   paymentsBySignup = {};
   (r2.data||[]).forEach(function(p){ (paymentsBySignup[p.signup_id]=paymentsBySignup[p.signup_id]||[]).push(p); });
   if (!customersCache){ var rc = await sbClient.from('customers').select('id,first_name,last_name,phone,email'); customersCache = rc.data || []; }
+  if (!branchesCache){ var rb = await sbClient.from('branches').select('id,label,address').order('sort_order'); branchesCache = rb.data || []; }
   renderSignups();
 }
+function scBranchLabel(id){
+  var b = (branchesCache||[]).find(function(x){ return x.id===id; });
+  return b ? b.label : (id ? id : '—');
+}
+function scBranchMatch(s){ return signupBranchFilter==='all' || s.branch_id===signupBranchFilter; }
 
 function scNormPhone(p){ return String(p||'').replace(/[^0-9]/g,'').replace(/^1/,''); }
 function scFindMatch(s){
@@ -1058,11 +1102,13 @@ function scStatusBadge(status){
   return '<span class="badge" style="background:'+c[1]+';color:'+c[0]+';">'+scTitle(status||'pending')+'</span>';
 }
 
+function scSetBranchFilter(v){ signupBranchFilter=v; renderSignups(); }
+
 function renderSignups(){
   var body = document.getElementById('signups-body');
   var totals = { total:0, electronic:0, credit_card:0, opwdd:0, agency_other:0 };
   var taxCollected = 0;
-  signupsData.forEach(function(s){
+  signupsData.filter(scBranchMatch).forEach(function(s){
     var pays = paymentsBySignup[s.id] || [];
     var collectedForReg = 0;
     pays.forEach(function(p){
@@ -1081,8 +1127,8 @@ function renderSignups(){
   var incomeAfterTax = totals.total - taxCollected;
 
   var owed=0, paid=0, outstanding=0;
-  signupsData.filter(function(s){return s.status!=='cancelled';}).forEach(function(s){ var o=scOwed(s), p=scPaid(s.id); owed+=o; paid+=p; outstanding+=Math.max(0,o-p); });
-  var pending = signupsData.filter(function(s){return s.status==='pending';}).length;
+  signupsData.filter(scBranchMatch).filter(function(s){return s.status!=='cancelled';}).forEach(function(s){ var o=scOwed(s), p=scPaid(s.id); owed+=o; paid+=p; outstanding+=Math.max(0,o-p); });
+  var pending = signupsData.filter(scBranchMatch).filter(function(s){return s.status==='pending';}).length;
 
   var summary = '<div class="sc-summary">' +
     scStat('Total collected', scMoney(totals.total), 'accent') +
@@ -1094,23 +1140,27 @@ function renderSignups(){
     scStat('Other / agency', scMoney(totals.agency_other), '') +
     scStat('Outstanding', scMoney(outstanding), 'warn') + '</div>';
 
+  var branchOptions = '<option value="all">All locations</option>' +
+    (branchesCache||[]).map(function(b){ return '<option value="'+b.id+'"'+(signupBranchFilter===b.id?' selected':'')+'>'+scEsc(b.label)+'</option>'; }).join('');
+
   var controls = '<div class="sc-controls">' +
     '<div class="sc-seg">' +
       '<button class="'+(signupView==='registrations'?'active':'')+'" onclick="scSetView(\'registrations\')">Registrations</button>' +
       '<button class="'+(signupView==='roster'?'active':'')+'" onclick="scSetView(\'roster\')">Roster by age</button>' +
     '</div>' +
+    '<select onchange="scSetBranchFilter(this.value)" style="max-width:200px;">'+branchOptions+'</select>' +
     (signupView==='registrations' ?
       '<select onchange="scSetStatusFilter(this.value)" style="max-width:200px;">' +
         ['all','pending','confirmed','cancelled'].map(function(st){ return '<option value="'+st+'"'+(signupStatusFilter===st?' selected':'')+'>'+(st==='all'?'All statuses':scTitle(st))+'</option>'; }).join('') +
       '</select>' : '') +
-    '<span style="font-size:12px;color:var(--muted);margin-left:auto;">'+signupsData.length+' total · '+pending+' pending</span>' +
+    '<span style="font-size:12px;color:var(--muted);margin-left:auto;">'+signupsData.filter(scBranchMatch).length+' shown · '+pending+' pending</span>' +
   '</div>';
 
   body.innerHTML = summary + controls + (signupView==='roster' ? renderRoster() : renderRegList());
 }
 
 function renderRegList(){
-  var list = signupsData.filter(function(s){ return signupStatusFilter==='all' || s.status===signupStatusFilter; });
+  var list = signupsData.filter(scBranchMatch).filter(function(s){ return signupStatusFilter==='all' || s.status===signupStatusFilter; });
   if (!list.length) return '<div class="empty"><div class="empty-icon">&#128197;</div><p>No registrations'+(signupStatusFilter!=='all'?' marked “'+signupStatusFilter+'”':' yet')+'.</p></div>';
   return list.map(renderRegCard).join('');
 }
@@ -1127,8 +1177,10 @@ function renderRegCard(s){
   var head = '<div class="sc-reg-head" onclick="scToggle(\''+s.id+'\')">' +
     '<div class="sc-reg-main">' +
       '<div class="sc-reg-name">'+scEsc(s.parent_first)+' '+scEsc(s.parent_last)+' '+scStatusBadge(s.status)+
+        (s.branch_id?' <span class="badge" style="background:#EAF3DE;color:#3B6D11;">'+scEsc(scBranchLabel(s.branch_id))+'</span>':'')+
         (s.ref_code?' <span class="badge" style="background:#EEF2F7;color:#33415C;font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:0.02em;">'+scEsc(s.ref_code)+'</span>':'')+
-        (s.opwdd_count?' <span class="badge" style="background:#EEEDFE;color:#3C3489;">OPWDD &times;'+s.opwdd_count+'</span>':'')+'</div>' +
+        (s.opwdd_count?' <span class="badge" style="background:#EEEDFE;color:#3C3489;">OPWDD &times;'+s.opwdd_count+'</span>':'')+
+        (s.source==='manual'?' <span class="badge" style="background:#F5F5F5;color:var(--muted);">Manual entry</span>':'')+'</div>' +
       '<div class="sc-reg-meta">'+kids.length+' child'+(kids.length!==1?'ren':'')+(ages.length?' · ages '+ages.join(', '):'')+' · '+created+'</div>' +
     '</div>' +
     '<div class="sc-reg-money"><div class="bal '+balCls+'">'+scMoney(bal)+(bal>0?' due':'')+'</div>'+scMoney(paid)+' of '+scMoney(owed)+'</div>' +
@@ -1196,22 +1248,23 @@ function scToggle(id){ openSignupIds[id]=!openSignupIds[id]; var el=document.get
 
 function renderRoster(){
   var rows = [];
-  signupsData.filter(function(s){return s.status!=='cancelled';}).forEach(function(s){
+  signupsData.filter(scBranchMatch).filter(function(s){return s.status!=='cancelled';}).forEach(function(s){
     (Array.isArray(s.children)?s.children:[]).forEach(function(k){
-      rows.push({ age:(k.age==null?999:Number(k.age)), name:k.name, grade:k.grade, school:k.school, funding:k.funding, parent:s.parent_first+' '+s.parent_last, phone:s.parent_phone, status:s.status });
+      rows.push({ age:(k.age==null?999:Number(k.age)), name:k.name, grade:k.grade, school:k.school, funding:k.funding, parent:s.parent_first+' '+s.parent_last, phone:s.parent_phone, status:s.status, branch:scBranchLabel(s.branch_id) });
     });
   });
   rows.sort(function(a,b){ return a.age-b.age; });
   if (!rows.length) return '<div class="empty"><div class="empty-icon">&#128101;</div><p>No participants yet.</p></div>';
   var lastAge=null, html='';
   rows.forEach(function(r){
-    if (r.age!==lastAge){ html += '<tr class="age-divider"><td colspan="5">Age '+(r.age===999?'—':r.age)+'</td></tr>'; lastAge=r.age; }
+    if (r.age!==lastAge){ html += '<tr class="age-divider"><td colspan="6">Age '+(r.age===999?'—':r.age)+'</td></tr>'; lastAge=r.age; }
     html += '<tr><td style="font-weight:600;">'+scEsc(r.name)+(r.funding==='opwdd'?' <span class="badge" style="background:#EEEDFE;color:#3C3489;">OPWDD</span>':'')+'</td>' +
       '<td>'+(r.grade?scEsc(r.grade):'—')+'</td><td>'+(r.school?scEsc(r.school):'—')+'</td>' +
       '<td>'+scEsc(r.parent)+'<br><span style="font-size:12px;color:var(--muted);">'+scEsc(r.phone)+'</span></td>' +
+      '<td>'+scEsc(r.branch)+'</td>' +
       '<td>'+scStatusBadge(r.status)+'</td></tr>';
   });
-  return '<div class="table-wrap"><table><thead><tr><th>Child</th><th>Grade</th><th>School</th><th>Parent</th><th>Status</th></tr></thead><tbody>'+html+'</tbody></table></div>';
+  return '<div class="table-wrap"><table><thead><tr><th>Child</th><th>Grade</th><th>School</th><th>Parent</th><th>Location</th><th>Status</th></tr></thead><tbody>'+html+'</tbody></table></div>';
 }
 
 // Best-effort notification ping — never blocks the staff action. The function looks
@@ -1263,6 +1316,391 @@ async function scLinkCustomer(id, custId){
   if (r.error){ alert('Error: '+r.error.message); return; }
   await loadSignups();
 }
+
+// ==================== ADD RESERVATION (manual / phone / DM) ====================
+
+function scNormName(n){ return String(n||'').trim().toLowerCase(); }
+
+function scComputeKnownChildren(cust){
+  var em = String(cust.email||'').toLowerCase().trim();
+  var ph = scNormPhone(cust.phone);
+  var matches = signupsData.filter(function(s){
+    if (cust.id && s.matched_customer_id === cust.id) return true;
+    if (em && String(s.parent_email||'').toLowerCase().trim() === em) return true;
+    if (ph && scNormPhone(s.parent_phone) === ph) return true;
+    return false;
+  });
+  var byName = {};
+  matches.forEach(function(s){
+    (Array.isArray(s.children)?s.children:[]).forEach(function(k){
+      if (!k || !k.name) return;
+      var key = scNormName(k.name);
+      var existing = byName[key];
+      if (!existing || new Date(s.created_at) > new Date(existing._createdAt)){
+        byName[key] = { name:k.name, dob:k.dob||null, age:k.age!=null?k.age:null, grade:k.grade||'', school:k.school||'', funding:k.funding||'self', _createdAt:s.created_at };
+      }
+    });
+  });
+  return Object.keys(byName).map(function(k){ return byName[k]; }).sort(function(a,b){ return a.name.localeCompare(b.name); });
+}
+
+function scAgeFromDob(dob){
+  if (!dob) return null;
+  var d = new Date(dob + 'T12:00:00');
+  if (isNaN(d.getTime())) return null;
+  var diffMs = Date.now() - d.getTime();
+  return Math.floor(diffMs / (365.25 * 24 * 3600 * 1000));
+}
+
+function scSearchCustomers(q){
+  var box = document.getElementById('sc-add-search-results');
+  q = String(q||'').trim().toLowerCase();
+  if (!q){ box.classList.remove('open'); box.innerHTML=''; return; }
+  var list = (customersCache||[]).filter(function(c){
+    var name = (String(c.first_name||'')+' '+String(c.last_name||'')).toLowerCase();
+    return name.indexOf(q) >= 0 || String(c.email||'').toLowerCase().indexOf(q) >= 0 || scNormPhone(c.phone).indexOf(q.replace(/[^0-9]/g,'')) >= 0;
+  }).slice(0, 8);
+  if (!list.length){ box.classList.remove('open'); box.innerHTML=''; return; }
+  box.innerHTML = list.map(function(c){
+    return '<div class="sc-search-item" onclick="scSelectCustomer(\''+c.id+'\')"><div>'+scEsc(c.first_name)+' '+scEsc(c.last_name)+'</div>' +
+      '<div class="sub">'+scEsc(c.email||'')+(c.email&&c.phone?' · ':'')+scEsc(c.phone||'')+'</div></div>';
+  }).join('');
+  box.classList.add('open');
+}
+
+function scSelectCustomer(custId){
+  var cust = (customersCache||[]).find(function(c){ return c.id === custId; });
+  if (!cust) return;
+  document.getElementById('sc-add-first').value = cust.first_name || '';
+  document.getElementById('sc-add-last').value = cust.last_name || '';
+  document.getElementById('sc-add-phone').value = cust.phone || '';
+  document.getElementById('sc-add-email').value = cust.email || '';
+  scAddMatchedCustomerId = cust.id;
+  scAddKnownChildren = scComputeKnownChildren(cust);
+  document.getElementById('sc-add-search').value = '';
+  document.getElementById('sc-add-search-results').classList.remove('open');
+  document.getElementById('sc-add-search-results').innerHTML = '';
+  document.getElementById('sc-add-matched-wrap').innerHTML =
+    '<div class="sc-matched-tag">&#10003; Linked to '+scEsc(cust.first_name)+' '+scEsc(cust.last_name)+
+    (scAddKnownChildren.length ? ' &middot; '+scAddKnownChildren.length+' known child'+(scAddKnownChildren.length!==1?'ren':'') : '') +
+    ' <button type="button" onclick="scClearMatchedCustomer()">change</button></div>';
+  scRefreshKnownChildSelects();
+}
+
+function scClearMatchedCustomer(){
+  scAddMatchedCustomerId = null;
+  scAddKnownChildren = [];
+  document.getElementById('sc-add-matched-wrap').innerHTML = '';
+  scRefreshKnownChildSelects();
+}
+
+function scKnownChildOptions(){
+  if (!scAddKnownChildren.length) return '';
+  return '<option value="">+ New child (not on file)</option>' +
+    scAddKnownChildren.map(function(k, i){ return '<option value="'+i+'">'+scEsc(k.name)+'</option>'; }).join('');
+}
+
+function scRefreshKnownChildSelects(){
+  document.querySelectorAll('#sc-add-children .sc-known-child-select').forEach(function(sel){
+    sel.innerHTML = scKnownChildOptions();
+    sel.parentElement.style.display = scAddKnownChildren.length ? '' : 'none';
+    sel.value = '';
+  });
+}
+
+function scAddChildBlock(){
+  var id = ++scAddChildSeq;
+  var wrap = document.getElementById('sc-add-children');
+  var block = document.createElement('div');
+  block.className = 'sc-add-child';
+  block.id = 'sc-add-child-' + id;
+  block.innerHTML =
+    '<div class="sc-add-child-head"><h4 class="sc-add-child-title">Child '+(wrap.children.length+1)+'</h4>' +
+      '<button type="button" class="btn btn-ghost btn-sm sc-remove-child" onclick="scRemoveChildBlock('+id+')">Remove</button></div>' +
+    '<div class="form-group" style="margin-bottom:10px;display:'+(scAddKnownChildren.length?'':'none')+';">' +
+      '<label>Use existing child</label>' +
+      '<select class="sc-known-child-select" onchange="scApplyKnownChild('+id+',this)">'+scKnownChildOptions()+'</select>' +
+    '</div>' +
+    '<div class="form-grid">' +
+      '<div class="form-group"><label>Child\'s name *</label><input type="text" class="c-name" oninput="scRecalcAddPricing()"></div>' +
+      '<div class="form-group"><label>Age *</label><input type="number" class="c-age" min="1" max="18" oninput="scAgeEdited('+id+');scRecalcAddPricing()"></div>' +
+      '<div class="form-group"><label>Date of birth</label><input type="date" class="c-dob"></div>' +
+      '<div class="form-group"><label>Grade</label><input type="text" class="c-grade" placeholder="e.g. 3rd"></div>' +
+      '<div class="form-group full"><label>School</label><input type="text" class="c-school"></div>' +
+    '</div>' +
+    '<div class="sc-confirm-note" id="sc-add-confirm-'+id+'" style="display:none;">Confirm this age is still correct.</div>' +
+    '<div class="form-group" style="flex-direction:row;align-items:center;gap:8px;margin-top:10px;">' +
+      '<input type="checkbox" class="c-opwdd" style="width:auto;" onchange="scRecalcAddPricing()">' +
+      '<label style="text-transform:none;font-weight:600;font-size:13px;color:var(--text);">This child is OPWDD-eligible</label>' +
+    '</div>' +
+    '<div class="sc-opwdd-hint" id="sc-add-opwdd-hint-'+id+'" style="display:none;"></div>';
+  wrap.appendChild(block);
+  scRenumberAddChildren();
+  scUpdateAddRemoveButtons();
+  scRecalcAddPricing();
+}
+
+function scRemoveChildBlock(id){
+  var el = document.getElementById('sc-add-child-' + id);
+  if (el) el.remove();
+  scRenumberAddChildren();
+  scUpdateAddRemoveButtons();
+  scRecalcAddPricing();
+}
+
+function scRenumberAddChildren(){
+  document.querySelectorAll('#sc-add-children .sc-add-child').forEach(function(b, i){
+    b.querySelector('.sc-add-child-title').textContent = 'Child ' + (i + 1);
+  });
+}
+
+function scUpdateAddRemoveButtons(){
+  var blocks = document.querySelectorAll('#sc-add-children .sc-add-child');
+  blocks.forEach(function(b){
+    var btn = b.querySelector('.sc-remove-child');
+    btn.style.display = blocks.length > 1 ? 'inline-flex' : 'none';
+  });
+}
+
+function scAgeEdited(id){
+  var note = document.getElementById('sc-add-confirm-' + id);
+  var block = document.getElementById('sc-add-child-' + id);
+  if (note) note.style.display = 'none';
+  if (block){ var ageInput = block.querySelector('.c-age'); if (ageInput) ageInput.classList.remove('sc-confirm-flag'); }
+}
+
+function scApplyKnownChild(id, selectEl){
+  var block = document.getElementById('sc-add-child-' + id);
+  if (!block) return;
+  var idx = selectEl.value;
+  var hint = document.getElementById('sc-add-opwdd-hint-' + id);
+  var note = document.getElementById('sc-add-confirm-' + id);
+  var ageInput = block.querySelector('.c-age');
+  if (idx === '' || idx == null){
+    // "new child" — leave fields as-is, clear any confirm/hint state
+    if (hint){ hint.style.display='none'; hint.textContent=''; }
+    if (note) note.style.display = 'none';
+    if (ageInput) ageInput.classList.remove('sc-confirm-flag');
+    return;
+  }
+  var k = scAddKnownChildren[Number(idx)];
+  if (!k) return;
+  block.querySelector('.c-name').value = k.name || '';
+  block.querySelector('.c-dob').value = k.dob || '';
+  block.querySelector('.c-grade').value = k.grade || '';
+  block.querySelector('.c-school').value = k.school || '';
+  var computedAge = scAgeFromDob(k.dob);
+  ageInput.value = (computedAge != null ? computedAge : (k.age != null ? k.age : ''));
+  ageInput.classList.add('sc-confirm-flag');
+  if (note) note.style.display = 'block';
+  // Never pre-check OPWDD — just flag it for a staff confirmation with the parent.
+  block.querySelector('.c-opwdd').checked = false;
+  if (hint){
+    if (k.funding === 'opwdd'){ hint.textContent = 'Was OPWDD-eligible in a previous registration — confirm with the parent this is still the case before checking the box above.'; hint.style.display = 'block'; }
+    else { hint.style.display = 'none'; hint.textContent = ''; }
+  }
+  scRecalcAddPricing();
+}
+
+function scCollectAddChildren(){
+  return Array.from(document.querySelectorAll('#sc-add-children .sc-add-child')).map(function(b){
+    return {
+      name: b.querySelector('.c-name').value.trim(),
+      age: b.querySelector('.c-age').value ? Number(b.querySelector('.c-age').value) : null,
+      dob: b.querySelector('.c-dob').value || null,
+      grade: b.querySelector('.c-grade').value.trim(),
+      school: b.querySelector('.c-school').value.trim(),
+      funding: b.querySelector('.c-opwdd').checked ? 'opwdd' : 'self'
+    };
+  });
+}
+
+function scAddTodayBeforeCutoff(program){
+  if (!program || !program.early_bird_cutoff) return false;
+  var today = new Date().toISOString().slice(0, 10);
+  return today < program.early_bird_cutoff;
+}
+
+function scAddComputeQuote(children, program, taxExempt){
+  var base = Number(program.base_price) || 0;
+  var ebAmt = scAddTodayBeforeCutoff(program) ? (Number(program.early_bird_amount) || 0) : 0;
+  var selfKids = children.filter(function(c){ return c.funding === 'self'; });
+  var opwddKids = children.filter(function(c){ return c.funding === 'opwdd'; });
+  var S = selfKids.length;
+  var sibMin = Number(program.sibling_min) || 2;
+  var sibAmt = (S >= sibMin) ? (Number(program.sibling_discount) || 0) : 0;
+  var perChild = Math.max(0, base - ebAmt - sibAmt);
+  var rate = taxExempt ? 0 : (Number(program.tax_rate) || 0);
+  var subtotal = perChild * S;
+  var tax = Math.round(subtotal * rate * 100) / 100;
+  var total = Math.round((subtotal + tax) * 100) / 100;
+  return {
+    base_price: base, self_count: S, opwdd_count: opwddKids.length,
+    early_bird_amount: ebAmt, early_bird_applied: ebAmt > 0,
+    sibling_amount: sibAmt, sibling_applied: sibAmt > 0,
+    per_child: perChild, self_full: base * S, self_due: subtotal,
+    subtotal: subtotal, tax_rate: rate, tax: tax, total: total,
+    tax_exempt: !!taxExempt,
+    opwdd_standard: base * opwddKids.length, cutoff: program.early_bird_cutoff || null
+  };
+}
+
+function scRecalcAddPricing(){
+  var box = document.getElementById('sc-add-price-preview');
+  if (!box) return;
+  if (!scAddActiveProgram){ box.innerHTML = '<div class="row">No active Sunday Club program found in pgl_programs.</div>'; return; }
+  var children = scCollectAddChildren();
+  var taxExempt = document.getElementById('sc-add-tax-exempt').checked;
+  var q = scAddComputeQuote(children, scAddActiveProgram, taxExempt);
+  var overrideRaw = document.getElementById('sc-add-override').value;
+  var override = overrideRaw !== '' ? parseFloat(overrideRaw) : null;
+
+  if (q.self_count === 0 && q.opwdd_count === 0){
+    box.innerHTML = '<div class="row">Add a child above to see pricing.</div>';
+    return;
+  }
+  var html = '';
+  if (q.self_count > 0){
+    html += '<div class="row"><span>Full price ('+q.self_count+' &times; '+scMoney(q.base_price)+')</span><span>'+scMoney(q.self_full)+'</span></div>';
+    if (q.early_bird_applied) html += '<div class="row"><span>Early-bird discount</span><span>&minus;'+scMoney(q.early_bird_amount * q.self_count)+'</span></div>';
+    if (q.sibling_applied) html += '<div class="row"><span>Sibling discount</span><span>&minus;'+scMoney(q.sibling_amount * q.self_count)+'</span></div>';
+    html += '<div class="row"><span>Subtotal</span><span>'+scMoney(q.subtotal)+'</span></div>';
+    html += '<div class="row"><span>Sales tax'+(taxExempt?' (exempt)':' ('+((q.tax_rate*100).toFixed(3).replace(/\.?0+$/, ''))+'%)')+'</span><span>'+scMoney(q.tax)+'</span></div>';
+    html += '<div class="row total"><span>'+(override!=null && !isNaN(override) ? 'Calculated total' : 'Total')+'</span><span>'+scMoney(q.total)+'</span></div>';
+  } else {
+    html += '<div class="row">No self-pay children yet — see OPWDD note below.</div>';
+  }
+  if (q.opwdd_count > 0){
+    html += '<div class="row">'+q.opwdd_count+' child'+(q.opwdd_count>1?'ren':'')+' marked OPWDD-eligible (billed to the agency, not included above).</div>';
+  }
+  if (override != null && !isNaN(override)){
+    html += '<div class="row total"><span>Price override — amount due</span><span>'+scMoney(override)+'</span></div>';
+  }
+  box.innerHTML = html;
+}
+
+function scOpenAddModal(){
+  document.getElementById('sc-add-error').classList.remove('show');
+  document.getElementById('sc-add-search').value = '';
+  document.getElementById('sc-add-search-results').classList.remove('open');
+  document.getElementById('sc-add-search-results').innerHTML = '';
+  document.getElementById('sc-add-matched-wrap').innerHTML = '';
+  document.getElementById('sc-add-first').value = '';
+  document.getElementById('sc-add-last').value = '';
+  document.getElementById('sc-add-phone').value = '';
+  document.getElementById('sc-add-email').value = '';
+  document.getElementById('sc-add-tax-exempt').checked = false;
+  document.getElementById('sc-add-override').value = '';
+  document.getElementById('sc-add-override-note').value = '';
+  document.getElementById('sc-add-note').value = '';
+  scAddMatchedCustomerId = null;
+  scAddKnownChildren = [];
+
+  var branchSel = document.getElementById('sc-add-branch');
+  branchSel.innerHTML = '<option value="">Select a location…</option>' +
+    (branchesCache||[]).map(function(b){ return '<option value="'+b.id+'">'+scEsc(b.label)+(b.address?' — '+scEsc(b.address):'')+'</option>'; }).join('');
+
+  document.getElementById('sc-add-children').innerHTML = '';
+  scAddChildSeq = 0;
+  scAddChildBlock();
+
+  document.getElementById('sc-add-overlay').classList.add('open');
+
+  (async function(){
+    if (!scAddActiveProgram){
+      var r = await sbClient.from('pgl_programs').select('*').eq('active', true).order('sort_order').limit(1);
+      if (r.data && r.data.length) scAddActiveProgram = r.data[0];
+    }
+    scRecalcAddPricing();
+  })();
+}
+
+function scCloseAddModal(){
+  document.getElementById('sc-add-overlay').classList.remove('open');
+}
+
+function scAddShowError(msg){
+  var el = document.getElementById('sc-add-error');
+  el.textContent = msg;
+  el.classList.add('show');
+  el.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+async function scSubmitAddReservation(){
+  document.getElementById('sc-add-error').classList.remove('show');
+  var branchId = document.getElementById('sc-add-branch').value;
+  var first = document.getElementById('sc-add-first').value.trim();
+  var last = document.getElementById('sc-add-last').value.trim();
+  var phone = document.getElementById('sc-add-phone').value.trim();
+  var email = document.getElementById('sc-add-email').value.trim();
+
+  if (!branchId){ scAddShowError('Please choose a location.'); return; }
+  if (!first || !last || !phone || !email){ scAddShowError('Please fill in the parent\'s name, phone, and email.'); return; }
+  if (!scAddActiveProgram){ scAddShowError('No active Sunday Club program found — check pgl_programs.'); return; }
+
+  var children = scCollectAddChildren();
+  if (!children.length){ scAddShowError('Please add at least one child.'); return; }
+  for (var i = 0; i < children.length; i++){
+    if (!children[i].name || !children[i].age){ scAddShowError('Please enter a name and age for child ' + (i+1) + '.'); return; }
+  }
+
+  var taxExempt = document.getElementById('sc-add-tax-exempt').checked;
+  var q = scAddComputeQuote(children, scAddActiveProgram, taxExempt);
+  var overrideRaw = document.getElementById('sc-add-override').value;
+  var override = overrideRaw !== '' ? parseFloat(overrideRaw) : null;
+  var isOverride = override != null && !isNaN(override);
+  var amountDue = isOverride ? override : q.total;
+  var overrideNote = document.getElementById('sc-add-override-note').value.trim();
+  if (isOverride && !overrideNote) overrideNote = 'Manual reservation — staff price override';
+
+  var payload = {
+    program_id: scAddActiveProgram.id,
+    program_name: scAddActiveProgram.name,
+    branch_id: branchId,
+    parent_first: first,
+    parent_last: last,
+    parent_phone: phone,
+    parent_email: email,
+    parent_notify: 'Email',
+    children: children,
+    child_count: children.length,
+    self_pay_count: q.self_count,
+    opwdd_count: q.opwdd_count,
+    quote: q,
+    amount_due: amountDue,
+    amount_due_is_override: isOverride,
+    override_note: isOverride ? overrideNote : '',
+    opwdd_amount: q.opwdd_standard,
+    status: 'confirmed',
+    source: 'manual',
+    matched_customer_id: scAddMatchedCustomerId || null,
+    staff_notes: document.getElementById('sc-add-note').value.trim()
+  };
+
+  var btn = document.getElementById('sc-add-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Adding…';
+  try {
+    var r = await sbClient.from('pgl_signups').insert([payload]).select('id,ref_code').single();
+    if (r.error) throw r.error;
+    await scNotify({ signup_id: r.data.id, type: 'confirmed' });
+    scCloseAddModal();
+    await loadSignups();
+    alert('Reservation added' + (r.data.ref_code ? ' — ref ' + r.data.ref_code : '') + '. Confirmation email sent to the parent.');
+  } catch (err) {
+    scAddShowError('Error saving reservation: ' + (err && err.message ? err.message : err));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add reservation & send confirmation email';
+  }
+}
+
+document.addEventListener('click', function(e){
+  var wrap = document.querySelector('.sc-search-wrap');
+  var results = document.getElementById('sc-add-search-results');
+  if (!wrap || !results) return;
+  if (!wrap.contains(e.target)) results.classList.remove('open');
+});
 
 </script>
 
@@ -1345,6 +1783,76 @@ async function scLinkCustomer(id, custId){
       <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
     </div>
     <div id="alert-edit" class="alert" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+<!-- ADD RESERVATION MODAL (manual / phone / DM entries) -->
+<div id="sc-add-overlay" class="sc-modal-overlay">
+  <div class="sc-modal">
+    <button class="sc-modal-close" onclick="scCloseAddModal()">&times;</button>
+    <h3>Add reservation</h3>
+    <p class="sc-modal-sub">For a registration arranged by phone or private message — skips the pending step, confirms right away, and emails the parent payment instructions.</p>
+    <div id="sc-add-error" class="alert alert-error"></div>
+
+    <label>Find existing customer (optional)</label>
+    <div class="sc-search-wrap">
+      <input type="text" id="sc-add-search" placeholder="Search by name, phone, or email…" oninput="scSearchCustomers(this.value)" onfocus="scSearchCustomers(this.value)" autocomplete="off">
+      <div id="sc-add-search-results" class="sc-search-results"></div>
+    </div>
+    <div id="sc-add-matched-wrap"></div>
+
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Location *</label>
+        <select id="sc-add-branch">
+          <option value="">Select a location…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Parent first name *</label>
+        <input type="text" id="sc-add-first">
+      </div>
+      <div class="form-group">
+        <label>Parent last name *</label>
+        <input type="text" id="sc-add-last">
+      </div>
+      <div class="form-group">
+        <label>Phone *</label>
+        <input type="tel" id="sc-add-phone">
+      </div>
+      <div class="form-group">
+        <label>Email *</label>
+        <input type="email" id="sc-add-email">
+      </div>
+    </div>
+
+    <div class="sc-sub">Participants</div>
+    <div id="sc-add-children"></div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="scAddChildBlock()">+ Add another child</button>
+
+    <div id="sc-add-price-preview" class="sc-price-preview"></div>
+
+    <div class="sc-sub">Pricing overrides (optional)</div>
+    <div class="sc-override-row">
+      <div class="form-group" style="flex-direction:row;align-items:center;gap:8px;">
+        <input type="checkbox" id="sc-add-tax-exempt" onchange="scRecalcAddPricing()" style="width:auto;">
+        <label style="text-transform:none;font-weight:600;font-size:13px;color:var(--text);">Tax exempt</label>
+      </div>
+      <div class="form-group">
+        <input type="number" step="0.01" id="sc-add-override" placeholder="Price override ($ total)" oninput="scRecalcAddPricing()">
+      </div>
+    </div>
+    <div class="form-group full" style="margin-top:8px;">
+      <input type="text" id="sc-add-override-note" placeholder="Reason for override (optional)">
+    </div>
+
+    <div class="sc-sub">Internal note (optional)</div>
+    <textarea id="sc-add-note" placeholder="e.g. Booked via Instagram DM on 8/31"></textarea>
+
+    <div style="margin-top:20px;display:flex;gap:10px;">
+      <button class="btn btn-primary" id="sc-add-submit-btn" onclick="scSubmitAddReservation()">Add reservation &amp; send confirmation email</button>
+      <button class="btn btn-ghost" onclick="scCloseAddModal()">Cancel</button>
+    </div>
   </div>
 </div>
 
