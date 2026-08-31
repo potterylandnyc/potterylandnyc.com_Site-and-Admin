@@ -871,7 +871,15 @@ async function handleSubmit(e) {
   e.preventDefault();
   const people = parseInt(document.getElementById('people-count')?.value) || 1;
   const { finalTotal } = calcPricing(selectedClasses, people);
+  // Generate the inquiry id here so we can hand it to the notify-inquiry
+  // function after saving (anon can insert but not read the row back).
+  const inquiryId = (self.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
   const payload = {
+    id: inquiryId,
     first_name: document.getElementById('fname').value,
     last_name: document.getElementById('lname').value,
     email: document.getElementById('email').value,
@@ -886,6 +894,11 @@ async function handleSubmit(e) {
   if (sb) {
     const { error } = await sb.from('pgl_inquiries').insert([payload]);
     if (error) { alert('Something went wrong. Please call or WhatsApp us directly.'); return; }
+    // Send the staff alert + customer confirmation emails. Non-blocking:
+    // if this fails, the inquiry is already saved, so we don't stop the user.
+    try {
+      await sb.functions.invoke('notify-inquiry', { body: { inquiry_id: inquiryId } });
+    } catch (err) { /* email is best-effort */ }
   }
   document.getElementById('inquiry-form').style.display = 'none';
   document.getElementById('form-success').style.display = 'block';
