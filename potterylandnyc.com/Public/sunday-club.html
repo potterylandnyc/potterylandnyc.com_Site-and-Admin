@@ -339,7 +339,7 @@ async function submitWaitlist(e) {
     document.getElementById('wl-success').style.display = 'block';
   } catch (_) {
     btn.disabled = false; btn.textContent = 'Add me to the list';
-    err.textContent = 'Sorry, something went wrong. Please call us at (718) 975-3130.';
+    err.textContent = 'Sorry, something went wrong. Please call us at (310) 279-2466.';
     err.style.display = 'block';
   }
 }
@@ -580,12 +580,14 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
 
   try {
     if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { data: inserted, error } = await sb.from('pgl_signups').insert([payload]).select('id').single();
+    const { error } = await sb.from('pgl_signups').insert([payload]);
     if (error) throw error;
 
     // Best-effort email ping — never blocks the registration, sends no child details.
     // notify-signup looks the registration up server-side by id, so it needs signup_id.
-    const newId = regId || (inserted && inserted.id);
+    // We use the id we generated client-side (regId) rather than reading the row back,
+    // since the public/anon role can only insert into this table, not read from it.
+    const newId = regId;
     if (newId) {
       try {
         await fetch(NOTIFY_FUNCTION, {
@@ -607,7 +609,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
   } catch (err) {
     btn.disabled = false;
     btn.textContent = 'Submit registration request';
-    setError('Sorry, something went wrong submitting your registration. Please try again, or call us at (718) 975-3130.');
+    setError('Sorry, something went wrong submitting your registration. Please try again, or call us at (310) 279-2466.');
   }
 });
 </script>
