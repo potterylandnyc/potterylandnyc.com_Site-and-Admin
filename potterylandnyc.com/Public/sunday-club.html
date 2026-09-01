@@ -43,6 +43,14 @@ main { padding: 36px 0 64px; }
 .form-group input:focus, .form-group select:focus { border-color: var(--color-primary); }
 .hint { font-size: 12px; color: var(--color-text-muted); margin-top: 4px; }
 
+.location-options { display: flex; flex-direction: column; gap: 10px; }
+.loc-option { position: relative; display: block; }
+.loc-option input { position: absolute; opacity: 0; pointer-events: none; }
+.loc-card { display: block; border: 2px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.loc-option input:checked + .loc-card { border-color: var(--color-primary); background: #F4F5FC; }
+.loc-name { display: block; font-size: 16px; font-weight: 700; color: var(--color-primary); margin-bottom: 4px; }
+.loc-detail { display: block; font-size: 13px; color: var(--color-text-muted); line-height: 1.5; }
+
 .contact-pref { display: flex; gap: 10px; flex-wrap: wrap; }
 .pref-opt { flex: 1; min-width: 90px; }
 .pref-opt input { position: absolute; opacity: 0; pointer-events: none; }
@@ -133,12 +141,7 @@ footer a { color: rgba(255,255,255,0.55); }
         <div class="card">
           <h2>Location</h2>
           <p class="card-sub">Which studio would you like to register for?</p>
-          <div class="form-group">
-            <label>Studio <span class="req">*</span></label>
-            <select id="branch-select" required>
-              <option value="">Select a location…</option>
-            </select>
-          </div>
+          <div class="location-options" id="location-options"></div>
         </div>
 
         <!-- PARENT -->
@@ -257,11 +260,19 @@ let program = FALLBACK_PROGRAM;
 let childSeq = 0;
 let branches = [];
 
-// Fallback if branches can't be loaded from the database.
+// Fallback if the offerings/branches can't be loaded from the database.
 const FALLBACK_BRANCHES = [
-  { id: 'fb', label: 'Flatbush', address: '1562 Coney Island Ave. • Brooklyn, NY 11230' },
-  { id: 'ch', label: 'Crown Heights', address: '982 S. Johns Pl • Brooklyn, NY 11213' }
+  { id: 'fb', label: 'Flatbush', address: '1562 Coney Island Ave. • Brooklyn, NY 11230', gender: 'Girls', age_min: 6, age_max: 13, start_time: '10:30', end_time: '13:30' },
+  { id: 'ch', label: 'Crown Heights', address: '982 S. Johns Pl • Brooklyn, NY 11213', gender: 'Girls', age_min: 9, age_max: 13, start_time: '14:00', end_time: '17:00' }
 ];
+
+function fmtTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return h12 + (m ? ':' + String(m).padStart(2, '0') : '') + ' ' + ampm;
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -270,25 +281,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (data && data.length) program = data[0];
   } catch (e) { /* keep fallback */ }
   try {
-    const { data: bdata } = await sb.from('branches_public').select('*').order('sort_order');
-    if (bdata && bdata.length) branches = bdata;
+    const [{ data: offerings }, { data: bdata }] = await Promise.all([
+      sb.from('pgl_program_offerings').select('*').eq('program_id', program.id).eq('active', true).order('sort_order'),
+      sb.from('branches_public').select('*').order('sort_order')
+    ]);
+    if (offerings && offerings.length && bdata && bdata.length) {
+      branches = offerings.map(o => {
+        const b = bdata.find(x => x.id === o.branch_id) || {};
+        return { id: o.branch_id, label: b.label, address: b.address, gender: o.gender, age_min: o.age_min, age_max: o.age_max, start_time: o.start_time, end_time: o.end_time };
+      });
+    }
   } catch (e) { /* keep fallback */ }
   if (!branches.length) branches = FALLBACK_BRANCHES;
-  populateBranchSelect();
+  renderLocationOptions();
   applyProgramCopy();
   addChild(); // start with one child
   checkOpen();
 });
 
-function populateBranchSelect() {
-  const sel = document.getElementById('branch-select');
-  if (!sel) return;
-  branches.forEach(b => {
-    const opt = document.createElement('option');
-    opt.value = b.id;
-    opt.textContent = b.label + (b.address ? ' — ' + b.address : '');
-    sel.appendChild(opt);
-  });
+function renderLocationOptions() {
+  const wrap = document.getElementById('location-options');
+  if (!wrap) return;
+  wrap.innerHTML = branches.map((b, i) => {
+    const ageLine = (b.gender || b.age_min != null)
+      ? [b.gender, (b.age_min != null && b.age_max != null) ? 'ages ' + b.age_min + '–' + b.age_max : ''].filter(Boolean).join(', ')
+      : '';
+    const timeLine = (b.start_time && b.end_time) ? fmtTime(b.start_time) + ' – ' + fmtTime(b.end_time) : '';
+    return (
+      '<label class="loc-option">' +
+        '<input type="radio" name="branch" value="' + b.id + '" required>' +
+        '<span class="loc-card">' +
+          '<span class="loc-name">' + b.label + '</span>' +
+          (b.address ? '<span class="loc-detail">' + b.address + '</span>' : '') +
+          (ageLine ? '<span class="loc-detail">' + ageLine + '</span>' : '') +
+          (timeLine ? '<span class="loc-detail">' + timeLine + '</span>' : '') +
+        '</span>' +
+      '</label>'
+    );
+  }).join('');
 }
 
 function checkOpen() {
@@ -531,7 +561,8 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   setError('');
 
-  const branchId = document.getElementById('branch-select').value;
+  const branchChecked = document.querySelector('input[name="branch"]:checked');
+  const branchId = branchChecked ? branchChecked.value : '';
   const first = document.getElementById('parent-first').value.trim();
   const last = document.getElementById('parent-last').value.trim();
   const phone = document.getElementById('parent-phone').value.trim();
