@@ -43,13 +43,13 @@ main { padding: 36px 0 64px; }
 .form-group input:focus, .form-group select:focus { border-color: var(--color-primary); }
 .hint { font-size: 12px; color: var(--color-text-muted); margin-top: 4px; }
 
-.location-options { display: flex; flex-direction: column; gap: 10px; }
-.loc-option { position: relative; display: block; }
+.location-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.loc-option { position: relative; display: block; min-width: 0; }
 .loc-option input { position: absolute; opacity: 0; pointer-events: none; }
-.loc-card { display: block; border: 2px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.loc-card { display: block; height: 100%; border: 2px solid var(--color-border); border-radius: var(--radius); padding: 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .loc-option input:checked + .loc-card { border-color: var(--color-primary); background: #F4F5FC; }
 .loc-name { display: block; font-size: 16px; font-weight: 700; color: var(--color-primary); margin-bottom: 4px; }
-.loc-detail { display: block; font-size: 13px; color: var(--color-text-muted); line-height: 1.5; }
+.loc-detail { display: block; font-size: 13px; color: var(--color-text-muted); line-height: 1.5; overflow-wrap: break-word; }
 
 .contact-pref { display: flex; gap: 10px; flex-wrap: wrap; }
 .pref-opt { flex: 1; min-width: 90px; }
@@ -304,15 +304,18 @@ function renderLocationOptions() {
   if (!wrap) return;
   wrap.innerHTML = branches.map((b, i) => {
     const ageLine = (b.gender || b.age_min != null)
-      ? [b.gender, (b.age_min != null && b.age_max != null) ? 'ages ' + b.age_min + '–' + b.age_max : ''].filter(Boolean).join(', ')
+      ? [b.gender, (b.age_min != null && b.age_max != null) ? 'ages <strong>' + b.age_min + '–' + b.age_max + '</strong>' : ''].filter(Boolean).join(', ')
       : '';
-    const timeLine = (b.start_time && b.end_time) ? fmtTime(b.start_time) + ' – ' + fmtTime(b.end_time) : '';
+    const timeLine = (b.start_time && b.end_time) ? '<strong>' + fmtTime(b.start_time) + ' – ' + fmtTime(b.end_time) + '</strong>' : '';
+    // Plain text, no separator character — on a narrow card this just wraps at whichever
+    // word boundary it needs to, with nothing dangling at the start of the new line.
+    const addressHtml = b.address ? b.address.replace(' • ', ', ') : '';
     return (
       '<label class="loc-option">' +
         '<input type="radio" name="branch" value="' + b.id + '" required>' +
         '<span class="loc-card">' +
           '<span class="loc-name">' + b.label + '</span>' +
-          (b.address ? '<span class="loc-detail">' + b.address + '</span>' : '') +
+          (addressHtml ? '<span class="loc-detail">' + addressHtml + '</span>' : '') +
           (ageLine ? '<span class="loc-detail">' + ageLine + '</span>' : '') +
           (timeLine ? '<span class="loc-detail">' + timeLine + '</span>' : '') +
         '</span>' +
