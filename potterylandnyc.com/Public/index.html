@@ -40,7 +40,7 @@ async function loadSiteCopy() {
   --radius: 12px; --max-width: 1100px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-body); font-weight: 200; background: var(--color-bg); color: var(--color-text); line-height: 1.6; }
+body { font-family: var(--font-body); font-weight: 400; background: var(--color-bg); color: var(--color-text); line-height: 1.6; }
 a { color: inherit; text-decoration: none; }
 .container { max-width: var(--max-width); margin: 0 auto; padding: 0 24px; }
 header { background: var(--color-surface); border-bottom: 1px solid var(--color-border); position: sticky; top: 0; z-index: 100; }
@@ -58,14 +58,14 @@ nav a:hover { color: var(--color-primary); }
 .hero { background: #F8F5F0; color: var(--color-primary); padding: 72px 24px; text-align: center; }
 .hero-eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.7; margin-bottom: 16px; }
 .hero h1 { font-family: var(--font-heading); font-size: clamp(36px, 7vw, 72px); font-weight: 700; line-height: 1.1; margin-bottom: 16px; }
-.hero-sub { font-size: 18px; opacity: 0.85; max-width: 560px; margin: 0 auto 32px; }
+.hero-sub { font-size: 18px; font-weight: 400; opacity: 0.85; max-width: 560px; margin: 0 auto 32px; }
 .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .hero-locations { margin-top: 40px; display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
 .hero-location { display: flex; align-items: center; gap: 8px; font-size: 14px; opacity: 0.8; }
 .walkin-banner { background: var(--color-accent); color: white; padding: 20px 24px; text-align: center; }
 .walkin-banner p { font-size: 16px; font-weight: 600; }
 .walkin-banner span { font-weight: 400; opacity: 0.9; font-size: 14px; display: block; margin-top: 4px; }
-.clubs-banner { background: linear-gradient(90deg, #2E3A8C, #4A57B5); color: white; padding: 22px 24px; border-top: 3px solid var(--color-accent); }
+.clubs-banner { background: #4D575F; color: white; padding: 22px 24px; border-top: 3px solid var(--color-accent); }
 .clubs-banner .cb-inner { max-width: var(--max-width); margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; }
 .clubs-banner .cb-text { text-align: left; }
 .clubs-banner .cb-eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent); font-weight: 700; margin-bottom: 3px; }
@@ -231,32 +231,28 @@ footer strong { display: block; color: white; font-family: var(--font-heading); 
   </div>
 </header>
 
-<section class="hero">
-  <div class="container">
-    <p class="hero-eyebrow">Brooklyn, NY</p>
-    <h1>Make something<br>beautiful today.</h1>
-    <p class="hero-sub">Paint pottery, throw on the wheel, build with clay, paint glass, canvas, and more — walk in anytime or book a class or party.</p>
-    <div class="hero-actions">
-      <a href="/sunday-club.html" class="btn" id="hero-clubs-btn" style="background:white;color:var(--color-primary);font-weight:700;display:none;">🎨 Register for Sunday Club →</a>
-      <a href="#classes" class="btn btn-accent">See Classes & Book</a>
-      <a href="#contact" class="btn btn-outline" style="color:var(--color-primary);border-color:var(--color-primary);">Book a Party</a>
-    </div>
-    <div class="hero-locations" id="hero-locations">
-      <div class="hero-location">📍 <span id="hero-main-address">1562 Coney Island Ave, Brooklyn, NY 11230</span></div>
-    </div>
-  </div>
-</section>
-
 <div class="clubs-banner" id="clubs-banner-wrap" style="display:none;">
   <div class="cb-inner">
     <div class="cb-text">
       <div class="cb-eyebrow">Now enrolling · Fall 2026</div>
-      <div class="cb-title">Sunday Club — reserve your child's spot</div>
+      <div class="cb-title">Sunday Club — reserve your daughter's spot</div>
       <div class="cb-sub">A 7-session Sunday program · early-bird pricing before Sept 23</div>
     </div>
     <a href="/sunday-club.html" class="cb-btn">Register now →</a>
   </div>
 </div>
+
+<section class="hero">
+  <div class="container">
+    <h1>Make something<br>beautiful today.</h1>
+    <p class="hero-sub">Paint pottery, throw on the wheel, build with clay, paint glass, canvas, and more — walk in anytime or book a class or party.</p>
+    <div class="hero-actions">
+      <a href="/sunday-club.html" class="btn" id="hero-clubs-btn" style="background:var(--color-accent);color:white;font-weight:700;display:none;">Register for Sunday Club →</a>
+      <a href="#classes" class="btn btn-outline" style="color:var(--color-primary);border-color:var(--color-primary);">Classes</a>
+      <a href="#contact" class="btn btn-outline" style="color:var(--color-primary);border-color:var(--color-primary);">Book a Party</a>
+    </div>
+  </div>
+</section>
 
 <div class="walkin-banner">
   <p>No reservation needed — walk in anytime!</p>
@@ -475,7 +471,7 @@ async function loadPromo() {
   if (navLink) { navLink.textContent = label; navLink.setAttribute('href', url); navLink.style.display = ''; }
   if (heroBtn) {
     heroBtn.setAttribute('href', url);
-    heroBtn.textContent = waitlist ? ('🎨 ' + label + ' — join the waitlist →') : ('🎨 Register for ' + label + ' →');
+    heroBtn.textContent = waitlist ? (label + ' — join the waitlist →') : ('Register for ' + label + ' →');
     heroBtn.style.display = '';
   }
   if (banner) {
@@ -486,7 +482,7 @@ async function loadPromo() {
     const sub = banner.querySelector('.cb-sub');
     const btn = banner.querySelector('.cb-btn');
     if (eyebrow) eyebrow.textContent = waitlist ? 'Registration closed' : 'Now enrolling';
-    if (title) title.textContent = waitlist ? (p.name + ' — join the waiting list') : (p.name + " — reserve your child's spot");
+    if (title) title.textContent = waitlist ? (p.name + ' — join the waiting list') : (p.name + " — reserve your daughter's spot");
     if (sub) sub.textContent = (p.session_count ? p.session_count + '-session program' : 'Seasonal program') + (range ? ' · ' + range : '');
     if (btn) { btn.setAttribute('href', url); btn.textContent = waitlist ? 'Join the waitlist →' : 'Register now →'; }
   }
