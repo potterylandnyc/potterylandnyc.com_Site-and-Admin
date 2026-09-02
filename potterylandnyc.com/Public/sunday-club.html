@@ -126,7 +126,7 @@ footer a { color: rgba(255,255,255,0.55); }
   <div class="container">
     <p class="hero-eyebrow">Now enrolling</p>
     <h1 id="hero-title">Sunday Club Registration</h1>
-    <p class="hero-sub" id="hero-sub">Reserve your child's spot in our 7-session Sunday program. Fill out the form below and we'll be in touch to confirm and arrange payment.</p>
+    <p class="hero-sub" id="hero-sub">Reserve your daughter's spot in our 7-session Sunday program. Fill out the form below and we'll be in touch to confirm and arrange payment.</p>
     <div class="hero-dates" id="hero-dates" style="display:none;"></div>
   </div>
 </section>
@@ -185,7 +185,7 @@ footer a { color: rgba(255,255,255,0.55); }
         <!-- SUBMIT -->
         <div class="card">
           <div class="submit-note">
-            <strong>This is a registration request, not a final booking.</strong> Once you submit, we'll reach out to confirm your child's spot and work out payment with you. Your place is held once we've connected and payment is arranged.
+            <strong>This is a registration request, not a final booking.</strong> Once you submit, we'll reach out to confirm your daughter's spot and work out payment with you. Your place is held once we've connected and payment is arranged.
           </div>
           <div class="form-error" id="form-error"></div>
           <button type="submit" class="submit-btn" id="submit-btn">Submit registration request</button>
@@ -199,7 +199,7 @@ footer a { color: rgba(255,255,255,0.55); }
       <div class="check">✓</div>
       <h2>Registration received!</h2>
       <p id="success-msg">Thank you — we've got your Sunday Club registration request.</p>
-      <p><strong>What happens next:</strong> a member of our team will reach out to you by your preferred contact method to confirm your child's spot and arrange payment. Your place is held once we've connected.</p>
+      <p><strong>What happens next:</strong> a member of our team will reach out to you by your preferred contact method to confirm your daughter's spot and arrange payment. Your place is held once we've connected.</p>
       <a href="/" class="home-btn">Back to home</a>
     </div>
 
@@ -387,7 +387,7 @@ function applyProgramCopy() {
   const sc = program.session_count || 7;
   const range = fmtDateRange(program.start_date, program.end_date);
   document.getElementById('hero-sub').textContent =
-    "Reserve your child's spot in our " + sc + "-session Sunday program. Fill out the form below and we'll be in touch to confirm and arrange payment.";
+    "Reserve your daughter's spot in our " + sc + "-session Sunday program. Fill out the form below and we'll be in touch to confirm and arrange payment.";
   const datesEl = document.getElementById('hero-dates');
   if (datesEl) {
     if (range) { datesEl.textContent = sc + ' Sundays · ' + range; datesEl.style.display = 'inline-block'; }
