@@ -523,7 +523,7 @@ tr:hover td { background: var(--bg); }
           <div class="form-group"><label>Promo label</label><input type="text" id="camp-label" placeholder="e.g. Fall 2026 launch"></div>
           <div class="form-group">
             <label>Discount</label>
-            <select id="camp-disc-type">
+            <select id="camp-disc-type" onchange="scToggleStackingField()">
               <option value="">No discount (tracking only)</option>
               <option value="percent">Percent off</option>
               <option value="fixed">Fixed $ off</option>
@@ -532,8 +532,13 @@ tr:hover td { background: var(--bg); }
           <div class="form-group"><label>Discount value</label><input type="number" min="0" step="0.01" id="camp-disc-value" placeholder="e.g. 15"></div>
           <div class="form-group"><label>Starts (blank = always)</label><input type="date" id="camp-starts"></div>
           <div class="form-group"><label>Ends (blank = never)</label><input type="date" id="camp-ends"></div>
-          <div class="form-group" style="display:flex;align-items:flex-end;">
-            <label style="display:flex;align-items:center;gap:8px;font-weight:400;"><input type="checkbox" id="camp-stackable" checked style="width:auto;"> Stacks with early-bird/sibling discounts</label>
+          <div class="form-group" id="camp-stackable-group" style="display:none;">
+            <label>Stacking behavior *</label>
+            <select id="camp-stackable">
+              <option value="">Choose one…</option>
+              <option value="stack">Stacks with early-bird/sibling discounts</option>
+              <option value="override">Overrides early-bird/sibling (this discount only)</option>
+            </select>
           </div>
         </div>
         <div style="margin-top:14px;display:flex;gap:10px;">
@@ -1154,6 +1159,11 @@ function scCampStatus(c){
   return '<span class="badge" style="background:#EAF6F0;color:#1B6B42;">Live</span>';
 }
 
+function scCampStackLabel(c){
+  if (!c.discount_type) return '—';
+  return c.stackable ? 'Stacks' : 'Overrides';
+}
+
 function renderCampaigns(){
   var tbody = document.getElementById('campaigns-tbody');
   if (!campaignsData.length){ tbody.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-icon">&#128179;</div><p>No campaigns yet.</p></div></td></tr>'; return; }
@@ -1165,15 +1175,26 @@ function renderCampaigns(){
       '<td>' + scEsc(c.label || '—') + '</td>' +
       '<td>' + scCampDiscountLabel(c) + '</td>' +
       '<td style="font-size:12px;">' + scCampWindow(c) + '</td>' +
-      '<td>' + (c.stackable ? 'Stacks' : 'Overrides') + '</td>' +
+      '<td>' + scCampStackLabel(c) + '</td>' +
       '<td>' + scCampStatus(c) + '</td>' +
       '<td style="white-space:nowrap;">' +
+        '<button class="btn btn-ghost btn-sm" onclick="openCampaignLinkModal(\'' + c.id + '\')">Get link</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="editCampaign(\'' + c.id + '\')">Edit</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="toggleCampaignActive(\'' + c.id + '\',' + (!c.active) + ')">' + (c.active ? 'Deactivate' : 'Activate') + '</button> ' +
         '<button class="btn btn-ghost btn-sm" style="color:#A32D2D;" onclick="deleteCampaign(\'' + c.id + '\')">Delete</button>' +
       '</td>' +
     '</tr>';
   }).join('');
+}
+
+// The stacking field only matters once a discount exists, and must be an explicit choice
+// every time a discount is present — never a silent default — so it stays blank/hidden for
+// tracking-only codes and resets to blank whenever the discount type changes.
+function scToggleStackingField(){
+  var discType = document.getElementById('camp-disc-type').value;
+  var group = document.getElementById('camp-stackable-group');
+  group.style.display = discType ? '' : 'none';
+  if (!discType) document.getElementById('camp-stackable').value = '';
 }
 
 function editCampaign(id){
@@ -1188,7 +1209,10 @@ function editCampaign(id){
   document.getElementById('camp-disc-value').value = c.discount_value != null ? c.discount_value : '';
   document.getElementById('camp-starts').value = c.starts_at || '';
   document.getElementById('camp-ends').value = c.ends_at || '';
-  document.getElementById('camp-stackable').checked = c.stackable !== false;
+  // Deliberately NOT pre-filled with a guessed value when a discount is already set —
+  // stacking must be re-confirmed on every save that has a discount, per design.
+  document.getElementById('camp-stackable').value = '';
+  scToggleStackingField();
   document.getElementById('campaign-form-title').textContent = 'Edit Campaign / Promo';
   document.getElementById('campaign-save-btn').textContent = 'Save changes';
   document.getElementById('campaign-cancel-btn').style.display = '';
@@ -1198,7 +1222,8 @@ function cancelEditCampaign(){
   editingCampaignId = null;
   ['camp-advertiser','camp-medium','camp-code','camp-label','camp-disc-value','camp-starts','camp-ends'].forEach(function(id){ document.getElementById(id).value = ''; });
   document.getElementById('camp-disc-type').value = '';
-  document.getElementById('camp-stackable').checked = true;
+  document.getElementById('camp-stackable').value = '';
+  scToggleStackingField();
   document.getElementById('campaign-form-title').textContent = 'Add Campaign / Promo';
   document.getElementById('campaign-save-btn').textContent = 'Add Campaign';
   document.getElementById('campaign-cancel-btn').style.display = 'none';
@@ -1213,11 +1238,12 @@ async function saveCampaign(){
   var discValRaw = document.getElementById('camp-disc-value').value;
   var starts = document.getElementById('camp-starts').value;
   var ends = document.getElementById('camp-ends').value;
-  var stackable = document.getElementById('camp-stackable').checked;
+  var stackChoice = document.getElementById('camp-stackable').value; // '', 'stack', 'override'
 
   if (!advertiser){ showAlert('alert-campaigns', 'Advertiser is required.', false); return; }
   if (!code){ showAlert('alert-campaigns', 'Code is required.', false); return; }
   if (discType && !discValRaw){ showAlert('alert-campaigns', 'Enter a discount value, or set discount to "No discount".', false); return; }
+  if (discType && !stackChoice){ showAlert('alert-campaigns', 'Choose whether this promo stacks with early-bird/sibling discounts or overrides them — required whenever a discount is set, so a bigger discount than intended never happens by accident.', false); return; }
 
   var payload = {
     advertiser: advertiser,
@@ -1228,7 +1254,8 @@ async function saveCampaign(){
     discount_value: discType ? Number(discValRaw) : null,
     starts_at: starts || null,
     ends_at: ends || null,
-    stackable: stackable
+    // No discount → stacking is meaningless, stored as null rather than a guessed default.
+    stackable: discType ? (stackChoice === 'stack') : null
   };
 
   var res = editingCampaignId
@@ -1239,6 +1266,28 @@ async function saveCampaign(){
   showAlert('alert-campaigns', editingCampaignId ? 'Campaign updated!' : 'Campaign added!', true);
   cancelEditCampaign();
   loadCampaigns();
+}
+
+// --- Get link modal ---
+var SITE_BASE = 'https://potterylandnyc.com';
+function scSlug(s){ return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
+
+function openCampaignLinkModal(id){
+  var c = campaignsData.find(function(x){ return x.id === id; });
+  if (!c) return;
+  var source = scSlug(c.medium) || scSlug(c.advertiser) || 'campaign';
+  var campaignParam = encodeURIComponent(c.code);
+  var sourceParam = encodeURIComponent(source);
+  document.getElementById('camp-link-sub').textContent = (c.advertiser || c.code) + (c.medium ? ' — ' + c.medium : '');
+  document.getElementById('camp-link-sc').value = SITE_BASE + '/sunday-club.html?utm_source=' + sourceParam + '&utm_campaign=' + campaignParam;
+  document.getElementById('camp-link-home').value = SITE_BASE + '/?utm_source=' + sourceParam + '&utm_campaign=' + campaignParam;
+  document.getElementById('camp-link-overlay').classList.add('open');
+}
+function closeCampaignLinkModal(){ document.getElementById('camp-link-overlay').classList.remove('open'); }
+function scCopyLink(id){
+  var el = document.getElementById(id);
+  el.select(); el.setSelectionRange(0, 99999);
+  try { navigator.clipboard.writeText(el.value); } catch (e) { try { document.execCommand('copy'); } catch (e2) {} }
 }
 
 async function toggleCampaignActive(id, newVal){
@@ -2053,6 +2102,30 @@ document.addEventListener('click', function(e){
       <button class="btn btn-primary" id="sc-add-submit-btn" onclick="scSubmitAddReservation()">Add reservation &amp; send confirmation email</button>
       <button class="btn btn-ghost" onclick="scCloseAddModal()">Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- GET LINK MODAL (campaigns tab) -->
+<div id="camp-link-overlay" class="sc-modal-overlay">
+  <div class="sc-modal" style="max-width:520px;">
+    <button class="sc-modal-close" onclick="closeCampaignLinkModal()">&times;</button>
+    <h3>Get link</h3>
+    <p class="sc-modal-sub" id="camp-link-sub"></p>
+    <div class="form-group">
+      <label>Sunday Club registration page</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="camp-link-sc" readonly style="flex:1;">
+        <button class="btn btn-ghost btn-sm" onclick="scCopyLink('camp-link-sc')">Copy</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Homepage / class booking</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="camp-link-home" readonly style="flex:1;">
+        <button class="btn btn-ghost btn-sm" onclick="scCopyLink('camp-link-home')">Copy</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px;">Only the Sunday Club link applies this code's discount, if any — the homepage link still tracks the visit either way.</p>
   </div>
 </div>
 
