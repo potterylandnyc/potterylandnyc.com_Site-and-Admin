@@ -229,6 +229,7 @@ tr:hover td { background: var(--bg); }
       <button class="tab" onclick="switchTab('pricing')">&#128176; Pricing</button>
       <button class="tab" onclick="switchTab('inquiries')">&#128140; Inquiries</button>
       <button class="tab" onclick="switchTab('signups')">&#128197; Sunday Club</button>
+      <button class="tab" onclick="switchTab('campaigns')">&#128179; Campaigns</button>
     </div>
 
     <!-- SCHEDULE -->
@@ -496,6 +497,51 @@ tr:hover td { background: var(--bg); }
         </div>
       </div>
     </div>
+
+    <!-- CAMPAIGNS -->
+    <div class="tab-panel" id="tab-campaigns">
+      <div id="alert-campaigns" class="alert"></div>
+      <div class="card">
+        <div class="card-title">
+          <span>Campaigns &amp; Promo Codes</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadCampaigns()">Refresh</button>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Every code tracks where a booking came from as soon as it's used in a link — nothing here needs to exist first for that. Add a row only when a code should also give a discount, or to keep a record of what a code is for.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Advertiser</th><th>Medium</th><th>Code</th><th>Promo label</th><th>Discount</th><th>Window</th><th>Stacks?</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="campaigns-tbody"><tr><td colspan="9"><div class="empty"><div class="empty-icon">&#128179;</div><p>Loading…</p></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" id="campaign-form-title">Add Campaign / Promo</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Advertiser *</label><input type="text" id="camp-advertiser" placeholder="e.g. Corner Bakery"></div>
+          <div class="form-group"><label>Medium</label><input type="text" id="camp-medium" placeholder="e.g. flyer, Instagram, email"></div>
+          <div class="form-group"><label>Code (used in the link) *</label><input type="text" id="camp-code" placeholder="e.g. bakery-flyer"></div>
+          <div class="form-group"><label>Promo label</label><input type="text" id="camp-label" placeholder="e.g. Fall 2026 launch"></div>
+          <div class="form-group">
+            <label>Discount</label>
+            <select id="camp-disc-type">
+              <option value="">No discount (tracking only)</option>
+              <option value="percent">Percent off</option>
+              <option value="fixed">Fixed $ off</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Discount value</label><input type="number" min="0" step="0.01" id="camp-disc-value" placeholder="e.g. 15"></div>
+          <div class="form-group"><label>Starts (blank = always)</label><input type="date" id="camp-starts"></div>
+          <div class="form-group"><label>Ends (blank = never)</label><input type="date" id="camp-ends"></div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:400;"><input type="checkbox" id="camp-stackable" checked style="width:auto;"> Stacks with early-bird/sibling discounts</label>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;">
+          <button class="btn btn-primary" id="campaign-save-btn" onclick="saveCampaign()">Add Campaign</button>
+          <button class="btn btn-ghost" id="campaign-cancel-btn" style="display:none;" onclick="cancelEditCampaign()">Cancel edit</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="loading-msg" style="text-align:center;padding:60px;color:var(--muted);">Connecting...</div>
@@ -542,11 +588,12 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 function switchTab(name) {
-  var names = ['classes','settings','discounts','pricing','inquiries','signups'];
+  var names = ['classes','settings','discounts','pricing','inquiries','signups','campaigns'];
   document.querySelectorAll('.tab').forEach(function(t, i) { t.classList.toggle('active', names[i] === name); });
   document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'signups') loadSignups();
+  if (name === 'campaigns') loadCampaigns();
 }
 
 // --- Deep link: /#sunday-club (or #sunday-clubs / #signups) opens the Sunday Club tab ---
@@ -1077,6 +1124,158 @@ async function loadSignups(){
   if (!branchesCache){ var rb = await sbClient.from('branches').select('id,label,address').order('sort_order'); branchesCache = rb.data || []; }
   renderSignups();
 }
+
+// --- CAMPAIGNS & PROMO CODES ---
+var campaignsData = [];
+var editingCampaignId = null;
+
+async function loadCampaigns(){
+  if (!sbClient) return;
+  if (!authUser){ return; }
+  var r = await sbClient.from('pgl_campaigns').select('*').order('advertiser').order('code').order('starts_at',{ascending:false});
+  if (r.error){ showAlert('alert-campaigns', 'Error loading campaigns: ' + r.error.message, false); return; }
+  campaignsData = r.data || [];
+  renderCampaigns();
+}
+
+function scCampWindow(c){
+  if (!c.starts_at && !c.ends_at) return 'Always';
+  return (c.starts_at || '…') + ' → ' + (c.ends_at || '…');
+}
+function scCampDiscountLabel(c){
+  if (!c.discount_type || c.discount_value == null) return '— (tracking only)';
+  return c.discount_type === 'percent' ? (Number(c.discount_value) + '% off') : ('$' + Number(c.discount_value).toFixed(2) + ' off');
+}
+function scCampStatus(c){
+  var today = new Date().toISOString().slice(0,10);
+  if (!c.active) return '<span class="badge" style="background:#FCEBEB;color:#A32D2D;">Inactive</span>';
+  if (c.ends_at && c.ends_at < today) return '<span class="badge" style="background:#F5F5F5;color:var(--muted);">Expired</span>';
+  if (c.starts_at && c.starts_at > today) return '<span class="badge" style="background:#FFF6DB;color:#8A6D00;">Upcoming</span>';
+  return '<span class="badge" style="background:#EAF6F0;color:#1B6B42;">Live</span>';
+}
+
+function renderCampaigns(){
+  var tbody = document.getElementById('campaigns-tbody');
+  if (!campaignsData.length){ tbody.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-icon">&#128179;</div><p>No campaigns yet.</p></div></td></tr>'; return; }
+  tbody.innerHTML = campaignsData.map(function(c){
+    return '<tr>' +
+      '<td>' + scEsc(c.advertiser || '—') + '</td>' +
+      '<td>' + scEsc(c.medium || '—') + '</td>' +
+      '<td style="font-family:ui-monospace,Menlo,Consolas,monospace;">' + scEsc(c.code) + '</td>' +
+      '<td>' + scEsc(c.label || '—') + '</td>' +
+      '<td>' + scCampDiscountLabel(c) + '</td>' +
+      '<td style="font-size:12px;">' + scCampWindow(c) + '</td>' +
+      '<td>' + (c.stackable ? 'Stacks' : 'Overrides') + '</td>' +
+      '<td>' + scCampStatus(c) + '</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<button class="btn btn-ghost btn-sm" onclick="editCampaign(\'' + c.id + '\')">Edit</button> ' +
+        '<button class="btn btn-ghost btn-sm" onclick="toggleCampaignActive(\'' + c.id + '\',' + (!c.active) + ')">' + (c.active ? 'Deactivate' : 'Activate') + '</button> ' +
+        '<button class="btn btn-ghost btn-sm" style="color:#A32D2D;" onclick="deleteCampaign(\'' + c.id + '\')">Delete</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function editCampaign(id){
+  var c = campaignsData.find(function(x){ return x.id === id; });
+  if (!c) return;
+  editingCampaignId = id;
+  document.getElementById('camp-advertiser').value = c.advertiser || '';
+  document.getElementById('camp-medium').value = c.medium || '';
+  document.getElementById('camp-code').value = c.code || '';
+  document.getElementById('camp-label').value = c.label || '';
+  document.getElementById('camp-disc-type').value = c.discount_type || '';
+  document.getElementById('camp-disc-value').value = c.discount_value != null ? c.discount_value : '';
+  document.getElementById('camp-starts').value = c.starts_at || '';
+  document.getElementById('camp-ends').value = c.ends_at || '';
+  document.getElementById('camp-stackable').checked = c.stackable !== false;
+  document.getElementById('campaign-form-title').textContent = 'Edit Campaign / Promo';
+  document.getElementById('campaign-save-btn').textContent = 'Save changes';
+  document.getElementById('campaign-cancel-btn').style.display = '';
+}
+
+function cancelEditCampaign(){
+  editingCampaignId = null;
+  ['camp-advertiser','camp-medium','camp-code','camp-label','camp-disc-value','camp-starts','camp-ends'].forEach(function(id){ document.getElementById(id).value = ''; });
+  document.getElementById('camp-disc-type').value = '';
+  document.getElementById('camp-stackable').checked = true;
+  document.getElementById('campaign-form-title').textContent = 'Add Campaign / Promo';
+  document.getElementById('campaign-save-btn').textContent = 'Add Campaign';
+  document.getElementById('campaign-cancel-btn').style.display = 'none';
+}
+
+async function saveCampaign(){
+  var advertiser = document.getElementById('camp-advertiser').value.trim();
+  var medium = document.getElementById('camp-medium').value.trim();
+  var code = document.getElementById('camp-code').value.trim();
+  var label = document.getElementById('camp-label').value.trim();
+  var discType = document.getElementById('camp-disc-type').value;
+  var discValRaw = document.getElementById('camp-disc-value').value;
+  var starts = document.getElementById('camp-starts').value;
+  var ends = document.getElementById('camp-ends').value;
+  var stackable = document.getElementById('camp-stackable').checked;
+
+  if (!advertiser){ showAlert('alert-campaigns', 'Advertiser is required.', false); return; }
+  if (!code){ showAlert('alert-campaigns', 'Code is required.', false); return; }
+  if (discType && !discValRaw){ showAlert('alert-campaigns', 'Enter a discount value, or set discount to "No discount".', false); return; }
+
+  var payload = {
+    advertiser: advertiser,
+    medium: medium || null,
+    code: code,
+    label: label || null,
+    discount_type: discType || null,
+    discount_value: discType ? Number(discValRaw) : null,
+    starts_at: starts || null,
+    ends_at: ends || null,
+    stackable: stackable
+  };
+
+  var res = editingCampaignId
+    ? await sbClient.from('pgl_campaigns').update(payload).eq('id', editingCampaignId)
+    : await sbClient.from('pgl_campaigns').insert([payload]);
+
+  if (res.error){ showAlert('alert-campaigns', 'Error saving: ' + res.error.message, false); return; }
+  showAlert('alert-campaigns', editingCampaignId ? 'Campaign updated!' : 'Campaign added!', true);
+  cancelEditCampaign();
+  loadCampaigns();
+}
+
+async function toggleCampaignActive(id, newVal){
+  var res = await sbClient.from('pgl_campaigns').update({ active: newVal }).eq('id', id);
+  if (res.error){ showAlert('alert-campaigns', 'Error: ' + res.error.message, false); return; }
+  loadCampaigns();
+}
+
+async function deleteCampaign(id){
+  if (!confirm('Delete this campaign row? Past registrations keep their own record of the discount that applied — this only removes the row from this list.')) return;
+  var res = await sbClient.from('pgl_campaigns').delete().eq('id', id);
+  if (res.error){ showAlert('alert-campaigns', 'Error: ' + res.error.message, false); return; }
+  loadCampaigns();
+}
+
+// Usage breakdown of Sunday Club registrations by utm_campaign code — shown inside the
+// Sunday Club tab's summary, next to the payment totals. Cancelled registrations excluded
+// (matches how "Outstanding"/"owed" above is computed).
+function scCampaignBreakdownHtml(list){
+  var byCode = {};
+  list.filter(function(s){ return s.status !== 'cancelled'; }).forEach(function(s){
+    var code = s.utm_campaign || '(no code)';
+    if (!byCode[code]) byCode[code] = { code: code, count: 0, selfPay: 0, discount: 0 };
+    byCode[code].count++;
+    byCode[code].selfPay += Number(s.amount_due) || 0;
+    var q = s.quote || {};
+    if (q.campaign_amount && q.self_count) byCode[code].discount += Number(q.campaign_amount) * Number(q.self_count);
+  });
+  var rows = Object.keys(byCode).map(function(k){ return byCode[k]; }).sort(function(a,b){ return b.selfPay - a.selfPay; });
+  if (!rows.length) return '';
+  return '<div class="card" style="margin-top:16px;"><div class="card-title">By campaign / source</div>' +
+    '<div class="table-wrap"><table><thead><tr><th>Code</th><th>Registrations</th><th>Self-pay total</th><th>Discount given</th></tr></thead><tbody>' +
+    rows.map(function(r){
+      return '<tr><td style="font-family:ui-monospace,Menlo,Consolas,monospace;">' + scEsc(r.code) + '</td><td>' + r.count + '</td><td>' + scMoney(r.selfPay) + '</td><td>' + scMoney(r.discount) + '</td></tr>';
+    }).join('') +
+    '</tbody></table></div></div>';
+}
 function scBranchLabel(id){
   var b = (branchesCache||[]).find(function(x){ return x.id===id; });
   return b ? b.label : (id ? id : '—');
@@ -1138,7 +1337,8 @@ function renderSignups(){
     scStat('Credit card', scMoney(totals.credit_card), '') +
     scStat('OPWDD', scMoney(totals.opwdd), '') +
     scStat('Other / agency', scMoney(totals.agency_other), '') +
-    scStat('Outstanding', scMoney(outstanding), 'warn') + '</div>';
+    scStat('Outstanding', scMoney(outstanding), 'warn') + '</div>' +
+    scCampaignBreakdownHtml(signupsData.filter(scBranchMatch));
 
   var branchOptions = '<option value="all">All locations</option>' +
     (branchesCache||[]).map(function(b){ return '<option value="'+b.id+'"'+(signupBranchFilter===b.id?' selected':'')+'>'+scEsc(b.label)+'</option>'; }).join('');
