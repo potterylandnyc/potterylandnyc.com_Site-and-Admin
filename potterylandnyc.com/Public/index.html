@@ -407,6 +407,27 @@ let selectedClasses = [];
 let discountRules = { multiclass: [], multiperson: [] };
 let currentFilter = 'all';
 
+// Ad/campaign attribution: remembers utm_source/utm_campaign from the landing URL
+// for the rest of the visit (survives clicking around the site), so it can be
+// stamped on whatever the visitor eventually submits.
+function captureUTM() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get('utm_source');
+    const campaign = params.get('utm_campaign');
+    if (source) sessionStorage.setItem('pgl_utm_source', source);
+    if (campaign) sessionStorage.setItem('pgl_utm_campaign', campaign);
+  } catch (e) { /* sessionStorage unavailable — ignore */ }
+}
+function getUTM() {
+  try {
+    return {
+      source: sessionStorage.getItem('pgl_utm_source') || null,
+      campaign: sessionStorage.getItem('pgl_utm_campaign') || null
+    };
+  } catch (e) { return { source: null, campaign: null }; }
+}
+
 const DEFAULT_HOURS = [
   { day: 'Sunday', open: '11:00', close: '22:00', closed: false },
   { day: 'Monday', open: '12:00', close: '17:00', closed: false },
@@ -489,6 +510,7 @@ async function loadPromo() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  captureUTM();
   const seasonEl = document.getElementById('classes-season-label');
   if (seasonEl) seasonEl.textContent = currentSeasonLabel() + ' — Reservation required';
   renderHours(DEFAULT_HOURS, []);
@@ -875,6 +897,7 @@ async function handleSubmit(e) {
     : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
       });
+  const utm = getUTM();
   const payload = {
     id: inquiryId,
     first_name: document.getElementById('fname').value,
@@ -886,7 +909,9 @@ async function handleSubmit(e) {
     interest: selectedClasses.length ? 'Class booking' : document.getElementById('interest')?.value,
     message: document.getElementById('message').value,
     estimated_total: finalTotal || null,
-    status: 'new'
+    status: 'new',
+    utm_source: utm.source,
+    utm_campaign: utm.campaign
   };
   if (sb) {
     const { error } = await sb.from('pgl_inquiries').insert([payload]);

@@ -260,6 +260,26 @@ let program = FALLBACK_PROGRAM;
 let childSeq = 0;
 let branches = [];
 
+// Ad/campaign attribution: remembers utm_source/utm_campaign from the landing URL
+// for the rest of the visit, so it can be stamped on whatever the visitor submits.
+function captureUTM() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get('utm_source');
+    const campaign = params.get('utm_campaign');
+    if (source) sessionStorage.setItem('pgl_utm_source', source);
+    if (campaign) sessionStorage.setItem('pgl_utm_campaign', campaign);
+  } catch (e) { /* sessionStorage unavailable — ignore */ }
+}
+function getUTM() {
+  try {
+    return {
+      source: sessionStorage.getItem('pgl_utm_source') || null,
+      campaign: sessionStorage.getItem('pgl_utm_campaign') || null
+    };
+  } catch (e) { return { source: null, campaign: null }; }
+}
+
 // Fallback if the offerings/branches can't be loaded from the database.
 const FALLBACK_BRANCHES = [
   { id: 'fb', label: 'Flatbush', address: '1562 Coney Island Ave. • Brooklyn, NY 11230', gender: 'Girls', age_min: 6, age_max: 13, start_time: '10:30', end_time: '13:30' },
@@ -275,6 +295,7 @@ function fmtTime(t) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  captureUTM();
   try {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const { data } = await sb.from('pgl_programs').select('*').eq('active', true).order('sort_order').limit(1);
@@ -353,6 +374,7 @@ async function submitWaitlist(e) {
   try {
     if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const parts = name.split(' ');
+    const wlUtm = getUTM();
     const payload = {
       first_name: parts[0],
       last_name: parts.slice(1).join(' ') || '',
@@ -360,7 +382,9 @@ async function submitWaitlist(e) {
       phone: phone || null,
       interest: (program.name || 'Sunday Club') + ' — Waitlist',
       message: 'Waitlist / more-info request' + (msg ? ': ' + msg : ''),
-      status: 'new'
+      status: 'new',
+      utm_source: wlUtm.source,
+      utm_campaign: wlUtm.campaign
     };
     const { error } = await sb.from('pgl_inquiries').insert([payload]);
     if (error) throw error;
@@ -582,6 +606,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
 
   const q = computeQuote(children);
   const regId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : null;
+  const regUtm = getUTM();
   const payload = {
     program_id: program.id,
     program_name: program.name,
@@ -599,7 +624,9 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     amount_due: q.total,
     opwdd_amount: q.opwdd_standard,
     status: 'pending',
-    source: 'website'
+    source: 'website',
+    utm_source: regUtm.source,
+    utm_campaign: regUtm.campaign
   };
   if (regId) payload.id = regId;
 
