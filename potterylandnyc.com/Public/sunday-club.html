@@ -259,6 +259,7 @@ let sb = null;
 let program = FALLBACK_PROGRAM;
 let childSeq = 0;
 let branches = [];
+let activeCampaign = null; // promo period matching the code in the URL, if one is currently live
 
 // Ad/campaign attribution: remembers utm_source/utm_campaign from the landing URL
 // for the rest of the visit, so it can be stamped on whatever the visitor submits.
@@ -278,6 +279,26 @@ function getUTM() {
       campaign: sessionStorage.getItem('pgl_utm_campaign') || null
     };
   } catch (e) { return { source: null, campaign: null }; }
+}
+
+// Looks up the utm_campaign code against pgl_campaigns and keeps it in activeCampaign
+// only if a promo period for that code is currently active and within its date window.
+// If the code doesn't match any live promo (wrong code, expired, paused), activeCampaign
+// stays null and pricing is unaffected — the code itself was already tracked by captureUTM.
+async function loadActiveCampaign() {
+  const utm = getUTM();
+  if (!utm.campaign || !sb) return;
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await sb.from('pgl_campaigns')
+      .select('id,code,label,discount_type,discount_value,starts_at,ends_at,active,stackable')
+      .eq('code', utm.campaign).eq('active', true);
+    if (data && data.length) {
+      activeCampaign = data.find(r =>
+        (!r.starts_at || r.starts_at <= today) && (!r.ends_at || r.ends_at >= today)
+      ) || null;
+    }
+  } catch (e) { activeCampaign = null; }
 }
 
 // Fallback if the offerings/branches can't be loaded from the database.
@@ -301,6 +322,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { data } = await sb.from('pgl_programs').select('*').eq('active', true).order('sort_order').limit(1);
     if (data && data.length) program = data[0];
   } catch (e) { /* keep fallback */ }
+  await loadActiveCampaign();
   try {
     const [{ data: offerings }, { data: bdata }] = await Promise.all([
       sb.from('pgl_program_offerings').select('*').eq('program_id', program.id).eq('active', true).order('sort_order'),
@@ -499,13 +521,24 @@ function collectChildren() {
 
 function computeQuote(children) {
   const base = Number(program.base_price) || 0;
-  const ebAmt = todayBeforeCutoff() ? (Number(program.early_bird_amount) || 0) : 0;
   const selfKids = children.filter(c => c.funding === 'self');
   const opwddKids = children.filter(c => c.funding === 'opwdd');
   const S = selfKids.length;
   const sibMin = Number(program.sibling_min) || 2;
-  const sibAmt = (S >= sibMin) ? (Number(program.sibling_discount) || 0) : 0;
-  const perChild = Math.max(0, base - ebAmt - sibAmt);
+
+  // A live campaign either stacks with early-bird/sibling (default) or, if that
+  // promo period was set up as non-stacking, replaces them entirely — set per
+  // promo in pgl_campaigns, not hardcoded here.
+  const overrides = !!(activeCampaign && activeCampaign.stackable === false);
+  const ebAmt = (!overrides && todayBeforeCutoff()) ? (Number(program.early_bird_amount) || 0) : 0;
+  const sibAmt = (!overrides && S >= sibMin) ? (Number(program.sibling_discount) || 0) : 0;
+  const campAmt = activeCampaign
+    ? (activeCampaign.discount_type === 'percent'
+        ? base * (Number(activeCampaign.discount_value) || 0) / 100
+        : (Number(activeCampaign.discount_value) || 0))
+    : 0;
+
+  const perChild = Math.max(0, base - ebAmt - sibAmt - campAmt);
   const rate = Number(program.tax_rate) || 0;
   const subtotal = perChild * S;
   const tax = Math.round(subtotal * rate * 100) / 100;
@@ -518,6 +551,10 @@ function computeQuote(children) {
     early_bird_applied: ebAmt > 0,
     sibling_amount: sibAmt,
     sibling_applied: sibAmt > 0,
+    campaign_id: activeCampaign ? activeCampaign.id : null,
+    campaign_label: activeCampaign ? activeCampaign.label : null,
+    campaign_amount: campAmt,
+    campaign_applied: campAmt > 0,
     per_child: perChild,
     self_full: base * S,
     self_due: subtotal,
@@ -547,6 +584,9 @@ function recalc() {
   if (q.early_bird_applied && q.self_count > 0) {
     html += '<div class="earlybird-flag">★ Early-bird pricing applied</div>';
   }
+  if (q.campaign_applied && q.self_count > 0) {
+    html += '<div class="earlybird-flag">🎉 Promo applied' + (q.campaign_label ? ': ' + q.campaign_label : '') + '</div>';
+  }
 
   if (q.self_count > 0) {
     html += `<div class="price-line strike"><span>Full price (${q.self_count} × ${money(q.base_price)})</span><span class="price-val">${money(q.self_full)}</span></div>`;
@@ -555,6 +595,9 @@ function recalc() {
     }
     if (q.sibling_applied) {
       html += `<div class="price-line discount"><span>Sibling discount (−${money(q.sibling_amount)} × ${q.self_count})</span><span>−${money(q.sibling_amount * q.self_count)}</span></div>`;
+    }
+    if (q.campaign_applied) {
+      html += `<div class="price-line discount"><span>Promo discount (−${money(q.campaign_amount)} × ${q.self_count})</span><span>−${money(q.campaign_amount * q.self_count)}</span></div>`;
     }
     html += '<hr class="price-divider">';
     html += `<div class="price-line"><span>Subtotal</span><span class="price-val">${money(q.subtotal)}</span></div>`;
@@ -626,7 +669,8 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     status: 'pending',
     source: 'website',
     utm_source: regUtm.source,
-    utm_campaign: regUtm.campaign
+    utm_campaign: regUtm.campaign,
+    campaign_id: q.campaign_id
   };
   if (regId) payload.id = regId;
 
