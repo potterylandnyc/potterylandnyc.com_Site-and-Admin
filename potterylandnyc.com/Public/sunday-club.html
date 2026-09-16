@@ -485,19 +485,19 @@ function recalc() {
   }
 
   if (q.self_count > 0) {
-    html += `<div class="price-line strike"><span>Full price (${q.self_count} × ${money(q.base_price)})</span><span class="price-val">${money(q.self_full)}</span></div>`;
+    html += `<div class="price-row strike"><span>Full price (${q.self_count} × ${money(q.base_price)})</span><span class="price-val">${money(q.self_full)}</span></div>`;
     if (q.early_bird_applied) {
-      html += `<div class="price-line discount"><span>Early-bird discount (−${money(q.early_bird_amount)} × ${q.self_count})</span><span>−${money(q.early_bird_amount * q.self_count)}</span></div>`;
+      html += `<div class="price-row discount"><span>Early-bird discount (−${money(q.early_bird_amount)} × ${q.self_count})</span><span>−${money(q.early_bird_amount * q.self_count)}</span></div>`;
     }
     if (q.sibling_applied) {
-      html += `<div class="price-line discount"><span>Sibling discount (−${money(q.sibling_amount)} × ${q.self_count})</span><span>−${money(q.sibling_amount * q.self_count)}</span></div>`;
+      html += `<div class="price-row discount"><span>Sibling discount (−${money(q.sibling_amount)} × ${q.self_count})</span><span>−${money(q.sibling_amount * q.self_count)}</span></div>`;
     }
     if (q.campaign_applied) {
-      html += `<div class="price-line discount"><span>Promo discount (−${money(q.campaign_amount)} × ${q.self_count})</span><span>−${money(q.campaign_amount * q.self_count)}</span></div>`;
+      html += `<div class="price-row discount"><span>Promo discount (−${money(q.campaign_amount)} × ${q.self_count})</span><span>−${money(q.campaign_amount * q.self_count)}</span></div>`;
     }
     html += '<hr class="price-divider">';
-    html += `<div class="price-line"><span>Subtotal</span><span class="price-val">${money(q.subtotal)}</span></div>`;
-    html += `<div class="price-line"><span>Sales tax (${fmtPct(q.tax_rate)})</span><span>${money(q.tax)}</span></div>`;
+    html += `<div class="price-row"><span>Subtotal</span><span class="price-val">${money(q.subtotal)}</span></div>`;
+    html += `<div class="price-row"><span>Sales tax (${fmtPct(q.tax_rate)})</span><span>${money(q.tax)}</span></div>`;
     html += `<div class="price-total"><span class="lbl">Total</span><span class="amt">${money(q.total)}</span></div>`;
   } else {
     html += '<p class="price-empty">No self-paid children yet — see the OPWDD note below.</p>';
