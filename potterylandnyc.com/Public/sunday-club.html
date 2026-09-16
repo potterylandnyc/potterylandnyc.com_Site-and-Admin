@@ -5,112 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sunday Club Registration — Pottery & Glass Land</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-:root {
-  --color-primary: #5B5048; --color-accent: #BF8160;
-  --color-bg: #FDFCF8; --color-surface: #FFFFFF;
-  --color-text: #1A1A1A; --color-text-muted: #666666;
-  --color-border: #E5E0D8;
-  --color-green: #1B6B42;
-  --font-heading: 'Unna', Georgia, serif;
-  --font-body: 'Inter', system-ui, sans-serif;
-  --radius: 12px; --max-width: 820px;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-body); font-weight: 400; background: var(--color-bg); color: var(--color-text); line-height: 1.6; }
-a { color: inherit; text-decoration: none; }
-.container { max-width: var(--max-width); margin: 0 auto; padding: 0 20px; }
-header { background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
-.header-inner { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; max-width: var(--max-width); margin: 0 auto; }
-.logo { font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--color-primary); line-height: 1.2; }
-.logo span { display: block; font-size: 11px; font-family: var(--font-body); font-weight: 400; color: var(--color-text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
-.back-link { font-size: 13px; color: var(--color-text-muted); }
-.back-link:hover { color: var(--color-primary); }
-.hero { background: #F8F5F0; color: var(--color-primary); padding: 44px 20px; text-align: center; border-bottom: 6px solid var(--color-accent); }
-.hero-eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--color-accent); margin-bottom: 12px; }
-.hero h1 { font-family: var(--font-heading); font-size: clamp(28px, 5vw, 44px); font-weight: 700; line-height: 1.1; margin-bottom: 12px; }
-.hero-sub { font-size: 16px; opacity: 0.88; max-width: 560px; margin: 0 auto; }
-.hero-dates { margin-top: 16px; display: inline-block; background: #4D575F; color: white; padding: 9px 18px; border-radius: 100px; font-size: 14px; font-weight: 600; }
-main { padding: 36px 0 64px; }
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 26px; margin-bottom: 20px; }
-.card h2 { font-family: var(--font-heading); font-size: 21px; color: var(--color-primary); margin-bottom: 4px; }
-.card .card-sub { font-size: 14px; color: var(--color-text-muted); margin-bottom: 20px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--color-text); margin-bottom: 6px; }
-.form-group .req { color: var(--color-accent); }
-.form-group input, .form-group select { width: 100%; padding: 10px 13px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 14px; font-family: var(--font-body); color: var(--color-text); background: var(--color-surface); outline: none; transition: border-color 0.2s; appearance: none; }
-.form-group input:focus, .form-group select:focus { border-color: var(--color-primary); }
-.hint { font-size: 12px; color: var(--color-text-muted); margin-top: 4px; }
-
-.location-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.loc-option { position: relative; display: block; min-width: 0; }
-.loc-option input { position: absolute; opacity: 0; pointer-events: none; }
-.loc-card { display: block; height: 100%; border: 2px solid var(--color-border); border-radius: var(--radius); padding: 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-.loc-option input:checked + .loc-card { border-color: var(--color-primary); background: #F4F5FC; }
-.loc-name { display: block; font-size: 16px; font-weight: 700; color: var(--color-accent); margin-bottom: 4px; }
-.loc-detail { display: block; font-size: 13px; color: var(--color-text-muted); line-height: 1.5; overflow-wrap: break-word; }
-
-.contact-pref { display: flex; gap: 10px; flex-wrap: wrap; }
-.pref-opt { flex: 1; min-width: 90px; }
-.pref-opt input { position: absolute; opacity: 0; pointer-events: none; }
-.pref-opt label { display: block; text-align: center; padding: 10px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--color-text-muted); cursor: pointer; transition: all 0.15s; margin: 0; }
-.pref-opt input:checked + label { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-
-.child-block { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; background: var(--color-bg); position: relative; }
-.child-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.child-head h3 { font-size: 15px; font-weight: 600; color: var(--color-primary); }
-.remove-child { background: none; border: none; color: var(--color-text-muted); font-size: 13px; cursor: pointer; font-weight: 600; padding: 4px 8px; border-radius: 6px; }
-.remove-child:hover { background: #F6E9E2; color: var(--color-accent); }
-.opwdd-row { margin-top: 4px; }
-.opwdd-check { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px dashed var(--color-border); border-radius: 8px; cursor: pointer; }
-.opwdd-check input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: var(--color-primary); }
-.opwdd-check .opwdd-text { font-size: 13px; color: var(--color-text-muted); }
-.opwdd-check .opwdd-text strong { color: var(--color-text); display: block; font-size: 13px; }
-.child-block.is-opwdd { border-color: var(--color-primary); background: #F4F5FC; }
-
-.add-child-btn { width: 100%; padding: 12px; border-radius: 8px; border: 2px dashed var(--color-border); background: transparent; color: var(--color-primary); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-.add-child-btn:hover { border-color: var(--color-primary); background: var(--color-bg); }
-
-.pricing-card { background: var(--color-accent); color: white; border: none; }
-.pricing-card h2 { color: white; }
-.price-empty { font-size: 14px; opacity: 0.8; }
-.price-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; margin-bottom: 8px; opacity: 0.9; }
-.price-line.discount { color: #BFE8CF; }
-.price-line.strike .price-val { text-decoration: line-through; opacity: 0.7; }
-.price-divider { border: none; border-top: 1px solid rgba(255,255,255,0.2); margin: 12px 0; }
-.price-total { display: flex; justify-content: space-between; align-items: baseline; }
-.price-total .lbl { font-size: 15px; font-weight: 600; }
-.price-total .amt { font-family: var(--font-heading); font-size: 30px; font-weight: 700; }
-.opwdd-note { margin-top: 14px; background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.5; }
-.earlybird-flag { display: inline-block; background: #F8F5F0; color: var(--color-accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 9px; border-radius: 100px; margin-bottom: 12px; }
-
-.submit-note { background: #FFF8E7; border: 1px solid #FAC775; border-radius: 8px; padding: 12px 15px; font-size: 13px; color: #633806; margin-bottom: 18px; line-height: 1.5; }
-.submit-btn { width: 100%; padding: 15px; border-radius: 10px; background: var(--color-primary); color: white; border: none; font-size: 16px; font-weight: 700; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
-.submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
-.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-.form-error { display: none; background: #FCECEC; border: 1px solid #E5A9A9; color: #9B2C2C; border-radius: 8px; padding: 12px 15px; font-size: 13px; margin-bottom: 16px; }
-
-.success-card { text-align: center; padding: 44px 26px; }
-.success-card .check { width: 64px; height: 64px; border-radius: 50%; background: #EAF6F0; color: var(--color-green); display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 18px; }
-.success-card h2 { font-family: var(--font-heading); font-size: 26px; color: var(--color-primary); margin-bottom: 12px; }
-.success-card p { font-size: 15px; color: var(--color-text-muted); max-width: 460px; margin: 0 auto 10px; }
-.success-card .home-btn { display: inline-block; margin-top: 18px; padding: 12px 26px; border-radius: 100px; background: var(--color-primary); color: white; font-size: 14px; font-weight: 600; }
-
-.closed-card { text-align: center; padding: 40px 26px; }
-.closed-card .closed-icon { font-size: 52px; margin-bottom: 14px; }
-.closed-card h2 { font-family: var(--font-heading); font-size: 24px; color: var(--color-primary); margin-bottom: 10px; }
-.closed-card p { font-size: 15px; color: var(--color-text-muted); max-width: 480px; margin: 0 auto 10px; }
-.reveal-waitlist-btn { margin-top: 18px; padding: 13px 28px; border-radius: 100px; background: var(--color-primary); color: white; border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
-.reveal-waitlist-btn:hover { opacity: 0.9; }
-
-footer { background: #2E3134; color: rgba(255,255,255,0.6); padding: 30px 20px; text-align: center; font-size: 13px; }
-footer a { color: rgba(255,255,255,0.55); }
-
-@media (max-width: 620px) {
-  .form-row { grid-template-columns: 1fr; }
-}
-</style>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="sunday-club.css">
 <link href="https://fonts.googleapis.com/css2?family=Unna:wght@400;700&family=Inter:wght@200;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -175,7 +71,7 @@ footer a { color: rgba(255,255,255,0.55); }
         </div>
 
         <!-- PRICING -->
-        <div class="card pricing-card">
+        <div class="card pricing-card on-dark">
           <h2>Your price</h2>
           <div id="pricing-body">
             <p class="price-empty">Add a child above to see pricing.</p>
