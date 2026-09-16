@@ -784,9 +784,9 @@ async function loadSiteCopy() {
 </script>
 
 <!-- CLASS SCHEDULE POPUP -->
-<div class="info-popup-overlay" id="schedule-popup" onclick="closeClassSchedule()">
-  <div class="info-popup schedule-popup" onclick="event.stopPropagation()">
-    <button class="info-popup-close" onclick="closeClassSchedule()">&times;</button>
+<div class="modal-overlay" id="schedule-popup" onclick="closeClassSchedule()">
+  <div class="modal schedule-popup" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeClassSchedule()">&times;</button>
     <h4 id="schedule-popup-title"></h4>
     <p class="schedule-popup-sub" id="schedule-popup-sub"></p>
     <div class="schedule-popup-list" id="schedule-popup-list"></div>
@@ -795,16 +795,16 @@ async function loadSiteCopy() {
 </div>
 
 <!-- FIRING INFO POPUPS -->
-<div class="info-popup-overlay" id="popup-1firing" onclick="closeInfoPopup('1firing')">
-  <div class="info-popup" onclick="event.stopPropagation()">
-    <button class="info-popup-close" onclick="closeInfoPopup('1firing')">&times;</button>
+<div class="modal-overlay" id="popup-1firing" onclick="closeInfoPopup('1firing')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeInfoPopup('1firing')">&times;</button>
     <h4>1 Firing</h4>
     <p id="copy-1firing">Your piece is painted with underglazes, then fired once in the kiln. The result is a finished, glazed piece ready to take home.</p>
   </div>
 </div>
-<div class="info-popup-overlay" id="popup-2firing" onclick="closeInfoPopup('2firing')">
-  <div class="info-popup" onclick="event.stopPropagation()">
-    <button class="info-popup-close" onclick="closeInfoPopup('2firing')">&times;</button>
+<div class="modal-overlay" id="popup-2firing" onclick="closeInfoPopup('2firing')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeInfoPopup('2firing')">&times;</button>
     <h4>2 Firings</h4>
     <p id="copy-2firing">Your piece goes through two firings. After the first (bisque) firing, you come back to paint it with glazes, then it gets fired a second time for a richer, more finished result.</p>
   </div>
