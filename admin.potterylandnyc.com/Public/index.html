@@ -1303,25 +1303,28 @@ async function deleteCampaign(id){
   loadCampaigns();
 }
 
-// Usage breakdown of Sunday Club registrations by utm_campaign code — shown inside the
-// Sunday Club tab's summary, next to the payment totals. Cancelled registrations excluded
-// (matches how "Outstanding"/"owed" above is computed).
+// Usage breakdown of Sunday Club registrations by utm_source (falling back to utm_campaign,
+// then "(no source)") — shown inside the Sunday Club tab's summary, next to the payment
+// totals. Cancelled registrations excluded (matches how "Outstanding"/"owed" above is computed).
 function scCampaignBreakdownHtml(list){
-  var byCode = {};
+  var byKey = {};
   list.filter(function(s){ return s.status !== 'cancelled'; }).forEach(function(s){
-    var code = s.utm_campaign || '(no code)';
-    if (!byCode[code]) byCode[code] = { code: code, count: 0, selfPay: 0, discount: 0 };
-    byCode[code].count++;
-    byCode[code].selfPay += Number(s.amount_due) || 0;
+    var src = s.utm_source || '';
+    var camp = s.utm_campaign || '';
+    var key = src || camp || '(no source)';
+    var label = src && camp ? (src + ' · ' + camp) : key;
+    if (!byKey[key]) byKey[key] = { label: label, count: 0, selfPay: 0, discount: 0 };
+    byKey[key].count++;
+    byKey[key].selfPay += Number(s.amount_due) || 0;
     var q = s.quote || {};
-    if (q.campaign_amount && q.self_count) byCode[code].discount += Number(q.campaign_amount) * Number(q.self_count);
+    if (q.campaign_amount && q.self_count) byKey[key].discount += Number(q.campaign_amount) * Number(q.self_count);
   });
-  var rows = Object.keys(byCode).map(function(k){ return byCode[k]; }).sort(function(a,b){ return b.selfPay - a.selfPay; });
+  var rows = Object.keys(byKey).map(function(k){ return byKey[k]; }).sort(function(a,b){ return b.selfPay - a.selfPay; });
   if (!rows.length) return '';
-  return '<div class="card" style="margin-top:16px;"><div class="card-title">By campaign / source</div>' +
-    '<div class="table-wrap"><table><thead><tr><th>Code</th><th>Registrations</th><th>Self-pay total</th><th>Discount given</th></tr></thead><tbody>' +
+  return '<div class="card" style="margin-top:16px;"><div class="card-title">By source / campaign</div>' +
+    '<div class="table-wrap"><table><thead><tr><th>Source</th><th>Registrations</th><th>Self-pay total</th><th>Discount given</th></tr></thead><tbody>' +
     rows.map(function(r){
-      return '<tr><td style="font-family:ui-monospace,Menlo,Consolas,monospace;">' + scEsc(r.code) + '</td><td>' + r.count + '</td><td>' + scMoney(r.selfPay) + '</td><td>' + scMoney(r.discount) + '</td></tr>';
+      return '<tr><td style="font-family:ui-monospace,Menlo,Consolas,monospace;">' + scEsc(r.label) + '</td><td>' + r.count + '</td><td>' + scMoney(r.selfPay) + '</td><td>' + scMoney(r.discount) + '</td></tr>';
     }).join('') +
     '</tbody></table></div></div>';
 }
@@ -1428,6 +1431,7 @@ function renderRegCard(s){
       '<div class="sc-reg-name">'+scEsc(s.parent_first)+' '+scEsc(s.parent_last)+' '+scStatusBadge(s.status)+
         (s.branch_id?' <span class="badge" style="background:#EAF3DE;color:#3B6D11;">'+scEsc(scBranchLabel(s.branch_id))+'</span>':'')+
         (s.ref_code?' <span class="badge" style="background:#EEF2F7;color:#33415C;font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:0.02em;">'+scEsc(s.ref_code)+'</span>':'')+
+        (s.utm_source?' <span class="badge" style="background:#FFF6DB;color:#8A6D00;">via '+scEsc(s.utm_source)+'</span>':'')+
         (s.opwdd_count?' <span class="badge" style="background:#EEEDFE;color:#3C3489;">OPWDD &times;'+s.opwdd_count+'</span>':'')+
         (s.source==='manual'?' <span class="badge" style="background:#F5F5F5;color:var(--muted);">Manual entry</span>':'')+'</div>' +
       '<div class="sc-reg-meta">'+kids.length+' child'+(kids.length!==1?'ren':'')+(ages.length?' · ages '+ages.join(', '):'')+' · '+created+'</div>' +

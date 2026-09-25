@@ -75,6 +75,14 @@ textarea { resize: vertical; }
 .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--color-text); margin-bottom: 6px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
+/* --- Phone field with country selector --- generic pattern: any phone
+   field on any page pairs a country-code select with the number input,
+   using the same formatPhone/getFullPhone/isValidPhone JS helpers (see
+   claude/style-guide.md "Phone number fields"). */
+.phone-row { display: flex; gap: 6px; align-items: stretch; }
+.phone-row .phone-country { flex-shrink: 0; width: auto; padding: 10px 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.phone-row input { flex: 1; min-width: 0; }
+
 /* --- Dark/colored-background utility ---
    Add class="on-dark" to any wrapper that sets its own background + color
    (e.g. a dark card or banner). Every heading/paragraph inside it will then
