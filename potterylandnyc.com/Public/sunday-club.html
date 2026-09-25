@@ -49,7 +49,41 @@
             <div class="form-group"><label>Last name <span class="req">*</span></label><input type="text" id="parent-last" required></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>Phone <span class="req">*</span></label><input type="tel" id="parent-phone" required placeholder="(718) 555-0000"></div>
+            <div class="form-group">
+              <label>Phone <span class="req">*</span></label>
+              <div class="phone-row">
+                <select id="parent-phone-country" class="phone-country">
+                  <option value="+1">US +1</option>
+                  <option value="+1-CA">CA +1</option>
+                  <option value="+44">UK +44</option>
+                  <option value="+972">IL +972</option>
+                  <option value="+61">AU +61</option>
+                  <option value="+64">NZ +64</option>
+                  <option value="+27">ZA +27</option>
+                  <option value="+33">FR +33</option>
+                  <option value="+49">DE +49</option>
+                  <option value="+39">IT +39</option>
+                  <option value="+34">ES +34</option>
+                  <option value="+31">NL +31</option>
+                  <option value="+32">BE +32</option>
+                  <option value="+41">CH +41</option>
+                  <option value="+43">AT +43</option>
+                  <option value="+55">BR +55</option>
+                  <option value="+52">MX +52</option>
+                  <option value="+54">AR +54</option>
+                  <option value="+91">IN +91</option>
+                  <option value="+86">CN +86</option>
+                  <option value="+81">JP +81</option>
+                  <option value="+82">KR +82</option>
+                  <option value="+7">RU +7</option>
+                  <option value="+20">EG +20</option>
+                  <option value="+212">MA +212</option>
+                  <option value="+234">NG +234</option>
+                  <option value="+other">Other</option>
+                </select>
+                <input type="tel" id="parent-phone" required placeholder="555-000-0000" oninput="formatPhone(this,'parent-phone-country')">
+              </div>
+            </div>
             <div class="form-group"><label>Email <span class="req">*</span></label><input type="email" id="parent-email" required placeholder="you@email.com"></div>
           </div>
           <div class="form-group">
@@ -110,7 +144,41 @@
       <form id="waitlist-form" style="display:none;text-align:left;max-width:460px;margin:24px auto 0;" onsubmit="submitWaitlist(event)">
         <div class="form-group"><label>Name <span class="req">*</span></label><input type="text" id="wl-name" required></div>
         <div class="form-row">
-          <div class="form-group"><label>Phone</label><input type="tel" id="wl-phone" placeholder="(718) 555-0000"></div>
+          <div class="form-group">
+            <label>Phone</label>
+            <div class="phone-row">
+              <select id="wl-phone-country" class="phone-country">
+                <option value="+1">US +1</option>
+                <option value="+1-CA">CA +1</option>
+                <option value="+44">UK +44</option>
+                <option value="+972">IL +972</option>
+                <option value="+61">AU +61</option>
+                <option value="+64">NZ +64</option>
+                <option value="+27">ZA +27</option>
+                <option value="+33">FR +33</option>
+                <option value="+49">DE +49</option>
+                <option value="+39">IT +39</option>
+                <option value="+34">ES +34</option>
+                <option value="+31">NL +31</option>
+                <option value="+32">BE +32</option>
+                <option value="+41">CH +41</option>
+                <option value="+43">AT +43</option>
+                <option value="+55">BR +55</option>
+                <option value="+52">MX +52</option>
+                <option value="+54">AR +54</option>
+                <option value="+91">IN +91</option>
+                <option value="+86">CN +86</option>
+                <option value="+81">JP +81</option>
+                <option value="+82">KR +82</option>
+                <option value="+7">RU +7</option>
+                <option value="+20">EG +20</option>
+                <option value="+212">MA +212</option>
+                <option value="+234">NG +234</option>
+                <option value="+other">Other</option>
+              </select>
+              <input type="tel" id="wl-phone" placeholder="555-000-0000" oninput="formatPhone(this,'wl-phone-country')">
+            </div>
+          </div>
           <div class="form-group"><label>Email</label><input type="email" id="wl-email" placeholder="you@email.com"></div>
         </div>
         <div class="form-group"><label>Anything you'd like us to know?</label><input type="text" id="wl-msg" placeholder="Optional"></div>
@@ -278,16 +346,50 @@ function showWaitlist() {
   document.getElementById('reveal-waitlist').style.display = 'none';
 }
 
+// Shared phone-field helpers (used by every phone field on this page, and
+// the order app's customer form) — see claude/style-guide.md "Phone number
+// fields" for the standard. formatPhone masks a US/Canada number as you
+// type; isValidPhone requires a complete 10-digit number (area code and
+// exchange can't start with 0 or 1) for US/Canada, or just a non-empty,
+// plausible-length number for anywhere else.
+function formatPhone(input, countrySelectId) {
+  const country = document.getElementById(countrySelectId)?.value || '+1';
+  const isNorthAmerica = country === '+1' || country === '+1-CA';
+  if (!isNorthAmerica) return;
+  const digits = input.value.replace(/\D/g,'').slice(0,10);
+  let formatted = digits;
+  if (digits.length > 6)      formatted = digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
+  else if (digits.length > 3) formatted = digits.slice(0,3) + '-' + digits.slice(3);
+  input.value = formatted;
+}
+function getFullPhone(countrySelectId, phoneInputId) {
+  const country = document.getElementById(countrySelectId)?.value || '+1';
+  const code = country === '+1-CA' ? '+1' : country === '+other' ? '' : country;
+  const num = document.getElementById(phoneInputId).value.trim();
+  return code ? code + ' ' + num : num;
+}
+function isValidPhone(countrySelectId, phoneInputId) {
+  const country = document.getElementById(countrySelectId)?.value || '+1';
+  const isNorthAmerica = country === '+1' || country === '+1-CA';
+  const raw = (document.getElementById(phoneInputId).value || '').trim();
+  if (!raw) return false;
+  if (!isNorthAmerica) return raw.replace(/\D/g,'').length >= 7;
+  const digits = raw.replace(/\D/g,'');
+  return digits.length === 10 && digits[0] !== '0' && digits[0] !== '1' && digits[3] !== '0' && digits[3] !== '1';
+}
+
 async function submitWaitlist(e) {
   e.preventDefault();
   const name = document.getElementById('wl-name').value.trim();
-  const phone = document.getElementById('wl-phone').value.trim();
+  const phoneRaw = document.getElementById('wl-phone').value.trim();
   const email = document.getElementById('wl-email').value.trim();
   const msg = document.getElementById('wl-msg').value.trim();
   const err = document.getElementById('wl-error');
   err.style.display = 'none';
   if (!name) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
-  if (!phone && !email) { err.textContent = 'Please give us a phone or email so we can reach you.'; err.style.display = 'block'; return; }
+  if (!phoneRaw && !email) { err.textContent = 'Please give us a phone or email so we can reach you.'; err.style.display = 'block'; return; }
+  if (phoneRaw && !isValidPhone('wl-phone-country','wl-phone')) { err.textContent = 'Please enter a complete, valid phone number, or leave it blank.'; err.style.display = 'block'; return; }
+  const phone = phoneRaw ? getFullPhone('wl-phone-country','wl-phone') : '';
   const btn = document.getElementById('wl-submit'); btn.disabled = true; btn.textContent = 'Submitting…';
   try {
     if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -526,13 +628,14 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
   const branchId = branchChecked ? branchChecked.value : '';
   const first = document.getElementById('parent-first').value.trim();
   const last = document.getElementById('parent-last').value.trim();
-  const phone = document.getElementById('parent-phone').value.trim();
   const email = document.getElementById('parent-email').value.trim();
   const notifyEl = document.querySelector('input[name="notify"]:checked');
   const notify = notifyEl ? notifyEl.value : 'Email';
 
   if (!branchId) { setError('Please choose a location.'); return; }
-  if (!first || !last || !phone || !email) { setError('Please fill in your name, phone, and email.'); return; }
+  if (!first || !last || !email) { setError('Please fill in your name, phone, and email.'); return; }
+  if (!isValidPhone('parent-phone-country','parent-phone')) { setError('Please enter a complete, valid phone number.'); return; }
+  const phone = getFullPhone('parent-phone-country','parent-phone');
 
   const children = collectChildren();
   if (!children.length) { setError('Please add at least one child.'); return; }
