@@ -1460,6 +1460,7 @@ function renderRegCard(s){
     '<div>' +
       '<div class="sc-sub">Contact</div>' +
       '<div style="font-size:13px;line-height:1.7;">'+scEsc(s.parent_phone)+'<br>'+scEsc(s.parent_email)+'<br>Prefers: <strong>'+scEsc(s.parent_notify||'Email')+'</strong></div>' +
+      (s.comments?'<div class="sc-sub" style="margin-top:10px;">Comments</div><div style="font-size:13px;line-height:1.5;white-space:pre-wrap;">'+scEsc(s.comments)+'</div>':'') +
       matchHtml +
       '<div class="sc-sub" style="margin-top:16px;">Participants</div>'+childHtml +
     '</div>' +

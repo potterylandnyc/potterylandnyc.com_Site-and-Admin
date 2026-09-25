@@ -94,6 +94,10 @@
               <div class="pref-opt"><input type="radio" name="notify" id="notify-email" value="Email" checked><label for="notify-email">Email</label></div>
             </div>
           </div>
+          <div class="form-group">
+            <label>Comments / special requests</label>
+            <textarea id="parent-comments" rows="3" placeholder="Optional"></textarea>
+          </div>
         </div>
 
         <!-- CHILDREN -->
@@ -631,6 +635,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
   const email = document.getElementById('parent-email').value.trim();
   const notifyEl = document.querySelector('input[name="notify"]:checked');
   const notify = notifyEl ? notifyEl.value : 'Email';
+  const comments = document.getElementById('parent-comments').value.trim();
 
   if (!branchId) { setError('Please choose a location.'); return; }
   if (!first || !last || !email) { setError('Please fill in your name, phone, and email.'); return; }
@@ -658,6 +663,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     parent_phone: phone,
     parent_email: email,
     parent_notify: notify,
+    comments: comments || null,
     children: children,
     child_count: children.length,
     self_pay_count: q.self_count,
