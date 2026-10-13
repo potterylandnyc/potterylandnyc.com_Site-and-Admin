@@ -40,7 +40,7 @@
       <p class="plan-fine">Each class: create a decorative piece, includes 1 firing.</p>
       <div class="promo-list" id="promo-list"></div>
       <div class="addon-box">
-        <strong>Want a usable piece?</strong> About 3 weeks after class, come back to paint your piece — <strong id="addon-price">$25</strong> per piece, includes glazing and a 2nd firing so it's water-tight and food-safe. No need to decide now — see how your piece comes out first.
+        <strong>Want a usable piece?</strong> 3 weeks after class, come back to paint your piece — <strong id="addon-price">$25</strong> per piece, includes glazing and a 2nd firing so it's water-tight and food-safe. No need to decide now — see how your piece comes out first.
         <div style="margin-top:8px;"><button type="button" class="link-btn" onclick="openModal('firing-popup')">How firing works</button></div>
       </div>
     </div>
@@ -119,7 +119,7 @@
         <!-- PEOPLE -->
         <div class="card">
           <h2>Who's coming?</h2>
-          <p class="card-sub">Bringing someone? Add them here.</p>
+          <p class="card-sub">Bringing someone? Add them here.<span id="friend-note"></span></p>
           <div id="people-list"></div>
           <button type="button" class="add-row-btn" onclick="openPersonModal()">+ Add another person</button>
         </div>
@@ -221,7 +221,7 @@
     <button type="button" class="modal-close" onclick="closeModal('firing-popup')">&times;</button>
     <h4>Firing &amp; glazes</h4>
     <h5>Your pieces</h5>
-    <p>Your creations need up to 2 weeks to dry before firing. They should be ready for pickup — or painting — after about 3 weeks. We'll let you know by WhatsApp, text or call when they're ready.</p>
+    <p>Your creations need up to 2 weeks to dry before firing. They should be ready for pickup — or painting — after 3 weeks. We'll let you know by WhatsApp, text or call when they're ready.</p>
     <h5>Decorative (included)</h5>
     <p>Fired once. You can paint it at home or leave it as is. Decorative pieces shouldn't get wet.</p>
     <h5>Usable (<span class="addon-price-inline">$25</span> add-on)</h5>
@@ -363,6 +363,8 @@ function renderPlans() {
   if (friendPromoLive()) promos.push('👯 <strong>Bring a friend:</strong> book together and you each get ' + money0(cfg.friend_promo_amount) + ' off.');
   if (firstClassPromoLive()) promos.push('🎉 <strong>Opening class:</strong> join us on ' + fmtDay(cfg.first_class_promo_date, { weekday: 'long', month: 'long', day: 'numeric' }) + ' and get ' + money0(cfg.first_class_promo_amount) + ' off.');
   document.getElementById('promo-list').innerHTML = promos.map(p => '<div class="promo-pill">' + p + '</div>').join('');
+  document.getElementById('friend-note').innerHTML = friendPromoLive()
+    ? ' <strong>Bring a friend and you each get ' + money0(cfg.friend_promo_amount) + ' off your session.</strong>' : '';
   const ap = money0(cfg.paint_addon_price || 25);
   document.getElementById('addon-price').textContent = ap;
   document.querySelectorAll('.addon-price-inline').forEach(el => el.textContent = ap);
