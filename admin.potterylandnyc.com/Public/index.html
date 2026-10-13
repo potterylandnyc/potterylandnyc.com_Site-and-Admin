@@ -443,6 +443,21 @@ tr:hover td { background: var(--bg); }
           <textarea id="s-copy-2firings" rows="3" placeholder="Explain what 2 firings means...">Your piece goes through two firings. After the first (bisque) firing, you come back to paint it with glazes, then it gets fired a second time for a richer, more finished result.</textarea>
         </div>
       </div>
+      <div class="card">
+        <div class="card-title">Daily Inquiry Summary Email</div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <h4>Send a daily summary</h4>
+            <p>One email listing the day's inquiries and any still waiting for a reply. Not sent on days with nothing to report.</p>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-digest-enabled" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div style="margin-top:12px;max-width:200px;" class="form-group">
+          <label>Send at (New York time)</label>
+          <input type="time" id="s-digest-time" value="17:00" step="900">
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:6px;">Checked every 15 minutes, so it may arrive up to 15 minutes after this time.</p>
+      </div>
       <button class="btn btn-primary" onclick="saveSettings()">Save All Settings</button>
     </div>
 
@@ -800,7 +815,7 @@ function deleteClass(id) { if (!confirm('Delete this session?')) return; sbClien
 // --- SETTINGS ---
 function loadSettings() {
   if (!sbClient) return;
-  sbClient.from('settings').select('*').in('key', ['website_hours','website_holiday_hours','website_ch_visible','website_ch_note','website_instagram','website_tagline','website_firing_copy']).then(function(res) {
+  sbClient.from('settings').select('*').in('key', ['website_hours','website_holiday_hours','website_ch_visible','website_ch_note','website_instagram','website_tagline','website_firing_copy','inquiry_digest_enabled','inquiry_digest_time']).then(function(res) {
     if (!res.data) return;
     var s = {};
     res.data.forEach(function(r) { s[r.key] = r.value; });
@@ -808,6 +823,8 @@ function loadSettings() {
     if (s.website_tagline) document.getElementById('s-tagline').value = s.website_tagline;
     if (s.website_ch_visible !== undefined) document.getElementById('s-ch-visible').checked = s.website_ch_visible === true || s.website_ch_visible === 'true';
     if (s.website_ch_note) document.getElementById('s-ch-note').value = s.website_ch_note;
+    if (s.inquiry_digest_enabled !== undefined) document.getElementById('s-digest-enabled').checked = s.inquiry_digest_enabled === true || s.inquiry_digest_enabled === 'true';
+    if (s.inquiry_digest_time) document.getElementById('s-digest-time').value = s.inquiry_digest_time;
     if (s.website_hours) { hoursData = s.website_hours; renderHoursEditor(); }
     if (s.website_holiday_hours) { holidayData = s.website_holiday_hours; renderHolidayEditor(); }
     if (s.website_firing_copy) {
@@ -825,6 +842,8 @@ function saveSettings() {
     { key: 'website_ch_note', value: document.getElementById('s-ch-note').value },
     { key: 'website_hours', value: hoursData },
     { key: 'website_holiday_hours', value: holidayData },
+    { key: 'inquiry_digest_enabled', value: document.getElementById('s-digest-enabled').checked },
+    { key: 'inquiry_digest_time', value: document.getElementById('s-digest-time').value || '17:00' },
     { key: 'website_firing_copy', value: {
       one_firing: document.getElementById('s-copy-1firing').value,
       two_firings: document.getElementById('s-copy-2firings').value

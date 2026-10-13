@@ -227,7 +227,10 @@ let sb = null;
 let program = FALLBACK_PROGRAM;
 let childSeq = 0;
 let branches = [];
-let activeCampaign = null; // promo period matching the code in the URL, if one is currently live
+let activeCampaign = null;
+// Set when the page is opened from a staff-sent "finish your registration" link (?complete=TOKEN).
+const completeToken = new URLSearchParams(window.location.search).get('complete') || '';
+const COMPLETE_FUNCTION = SUPABASE_URL + '/functions/v1/sc-complete'; // promo period matching the code in the URL, if one is currently live
 
 // Ad/campaign attribution: remembers utm_source/utm_campaign from the landing URL
 // for the rest of the visit, so it can be stamped on whatever the visitor submits.
@@ -307,8 +310,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderLocationOptions();
   applyProgramCopy();
   addChild(); // start with one child
+  if (completeToken) { await startCompleteMode(); return; } // invited by staff: skip the closed-registration check
   checkOpen();
 });
+
+// Splits a saved "+<code> <number>" phone back into the country select + number box.
+function splitPhone(full, countrySelectId, phoneInputId) {
+  const sel = document.getElementById(countrySelectId);
+  const inp = document.getElementById(phoneInputId);
+  const m = String(full || '').trim().match(/^(\+\d+)\s+(.*)$/);
+  if (m && sel && [...sel.options].some(o => o.value === m[1])) { sel.value = m[1]; inp.value = m[2]; }
+  else if (full) { if (sel) sel.value = '+other'; inp.value = String(full).trim(); }
+}
+
+async function startCompleteMode() {
+  let d = null;
+  try {
+    const r = await fetch(COMPLETE_FUNCTION, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+      body: JSON.stringify({ action: 'load', token: completeToken })
+    });
+    d = await r.json();
+  } catch (_) { d = null; }
+  if (!d || !d.valid) {
+    document.getElementById('form-wrap').style.display = 'none';
+    document.getElementById('closed-card').style.display = 'block';
+    document.getElementById('closed-title').textContent = 'This link is no longer active';
+    document.getElementById('closed-msg').textContent = 'It may have expired or already been used. Please call or WhatsApp us at (310) 279-2466 and we\'ll help you finish your registration.';
+    return;
+  }
+  document.getElementById('parent-first').value = d.parent_first || '';
+  document.getElementById('parent-last').value = d.parent_last || '';
+  document.getElementById('parent-email').value = d.parent_email || '';
+  if (d.parent_phone) splitPhone(d.parent_phone, 'parent-phone-country', 'parent-phone');
+  if (d.comments) document.getElementById('parent-comments').value = d.comments;
+  const eyebrow = document.querySelector('.hero-eyebrow');
+  if (eyebrow) eyebrow.textContent = 'Almost done';
+  document.getElementById('hero-title').textContent = 'Finish your Sunday Club registration';
+  document.getElementById('hero-sub').textContent = "We've filled in what we already have. Please add your daughter's details and choose a location, then submit.";
+}
 
 function renderLocationOptions() {
   const wrap = document.getElementById('location-options');
@@ -677,13 +718,24 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     utm_campaign: regUtm.campaign,
     campaign_id: q.campaign_id
   };
-  if (regId) payload.id = regId;
+  if (regId && !completeToken) payload.id = regId;
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.textContent = 'Submitting…';
 
   try {
+    if (completeToken) {
+      // Finishing a staff-started registration: saved through the private link, which also
+      // sends the usual confirmation emails, so the normal insert + email below are skipped.
+      const r = await fetch(COMPLETE_FUNCTION, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+        body: JSON.stringify({ action: 'save', token: completeToken, payload })
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok || !out.saved) throw new Error(out.error || 'save failed');
+    } else {
     if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const { error } = await sb.from('pgl_signups').insert([payload]);
     if (error) throw error;
@@ -693,7 +745,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     // We use the id we generated client-side (regId) rather than reading the row back,
     // since the public/anon role can only insert into this table, not read from it.
     const newId = regId;
-    if (newId) {
+    if (newId && !completeToken) {
       try {
         await fetch(NOTIFY_FUNCTION, {
           method: 'POST',
@@ -701,6 +753,7 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
           body: JSON.stringify({ signup_id: newId, type: 'new' })
         });
       } catch (_) { /* ignore — email is optional */ }
+    }
     }
 
     const branch = branches.find(b => b.id === branchId);
