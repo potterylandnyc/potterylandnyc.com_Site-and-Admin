@@ -34,8 +34,8 @@
 
     <!-- PLANS -->
     <div class="card">
-      <h2>Pick a plan</h2>
-      <p class="card-sub">Come for one class or save with a package.</p>
+      <h2>Packages</h2>
+      <p class="card-sub">No need to choose a package — just pick your dates below and the best price is applied automatically.</p>
       <div class="plan-list" id="plan-list"></div>
       <p class="plan-fine">Each class: create a decorative piece, includes 1 firing.</p>
       <div class="promo-list" id="promo-list"></div>
@@ -354,9 +354,9 @@ function computeQuote(selected, people) {
 function renderPlans() {
   const pk = packagesSorted();
   document.getElementById('plan-list').innerHTML = pk.map(p => {
-    const per = p.classes > 1 ? '<div class="plan-per">' + money0(Math.round(p.price / p.classes * 100) / 100) + ' per class</div>' : '<div class="plan-per">&nbsp;</div>';
-    return '<div class="plan-item"><div class="plan-price">' + money0(p.price) + '</div><div class="plan-tax">+ tax</div>' +
-      '<div class="plan-name">' + packageLabel(p.classes) + '</div>' + per + '</div>';
+    const per = p.classes > 1 ? ' <span class="plan-per">(' + money0(Math.round(p.price / p.classes * 100) / 100) + ' / class)</span>' : '';
+    return '<div class="plan-item"><span class="plan-name">' + packageLabel(p.classes) + '</span><span class="plan-dots"></span>' +
+      '<span class="plan-price">' + money0(p.price) + ' <span class="plan-tax">+ tax</span>' + per + '</span></div>';
   }).join('');
   const promos = [];
   if (friendPromoLive()) promos.push('👯 <strong>Bring a friend:</strong> book together and you each get ' + money0(cfg.friend_promo_amount) + ' off.');

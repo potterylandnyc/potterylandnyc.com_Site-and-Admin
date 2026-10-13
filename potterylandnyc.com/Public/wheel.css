@@ -1,12 +1,12 @@
 :root { --max-width: 820px; --container-padding: 20px; }
 
-/* Plans / info card */
-.plan-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-.plan-item { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 12px; text-align: center; background: var(--color-bg); }
-.plan-price { font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-primary); line-height: 1.1; }
-.plan-tax { font-size: 12px; color: var(--color-text-muted); }
-.plan-name { font-size: 14px; font-weight: 600; color: var(--color-accent); margin-top: 4px; }
-.plan-per { font-size: 12px; color: var(--color-text-muted); }
+/* Packages: a plain price list (not selectable) */
+.plan-list { margin-bottom: 14px; }
+.plan-item { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; font-size: 15px; }
+.plan-name { font-weight: 600; color: var(--color-text); white-space: nowrap; }
+.plan-dots { flex: 1; border-bottom: 1px dotted var(--color-border); transform: translateY(-4px); min-width: 16px; }
+.plan-price { font-weight: 700; color: var(--color-primary); text-align: right; }
+.plan-tax, .plan-per { font-size: 12px; font-weight: 400; color: var(--color-text-muted); }
 .plan-fine { font-size: 13px; color: var(--color-text-muted); margin-bottom: 8px; }
 .promo-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .promo-pill { font-size: 13px; background: #EAF6F0; color: #1E6B45; border-radius: 8px; padding: 8px 12px; }
@@ -45,7 +45,4 @@
 .firing-modal h5 { font-size: 15px; margin: 14px 0 4px; color: var(--color-primary); }
 .firing-modal p { font-size: 14px; line-height: 1.6; }
 
-@media (max-width: 620px) {
-  .plan-list { grid-template-columns: 1fr; }
-}
 .pricing-card .price-row { gap: 12px; }
