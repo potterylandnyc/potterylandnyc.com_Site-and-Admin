@@ -234,6 +234,7 @@ const SUPABASE_URL = 'https://pehllmkuvrccfuvcskvj.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wHyJLfEuxJvIUeOAni_vyw_DGEcfHCM';
 const NOTIFY_FUNCTION = SUPABASE_URL + '/functions/v1/notify-wheel';
 const DATES_SHOWN_FIRST = 8;
+const ALMOST_FULL_AT = 3; // show "Almost full" when this many seats or fewer are open (confirmed + pending)
 
 // Used only if the settings row can't be loaded. Real values live in
 // settings key 'website_wheel_adult' (editable without a code change).
@@ -386,9 +387,8 @@ function renderDates() {
     const left = seatsLeft(s);
     const open = seatsOpen(s);
     const full = left <= 0;
-    const busy = !full && open <= 0;
-    const low = !full && (busy || open <= 3);
-    const meta = full ? 'Full' : busy ? (fmtTime(s.time) + ' · Almost full') : (fmtTime(s.time) + ' · ' + open + (open === 1 ? ' seat left' : ' seats left'));
+    const low = !full && open <= ALMOST_FULL_AT;
+    const meta = full ? 'Full' : low ? (fmtTime(s.time) + ' · Almost full') : fmtTime(s.time);
     const promo = (firstClassPromoLive() && s.date === cfg.first_class_promo_date) ? '<span class="date-tag">' + money0(cfg.first_class_promo_amount) + ' off</span>' : '';
     return '<label class="date-opt' + (full ? ' is-full' : '') + (low ? ' is-low' : '') + '">' +
       '<input type="checkbox" name="session" value="' + s.id + '"' + (full ? ' disabled' : '') + (checked.has(s.id) ? ' checked' : '') + ' onchange="recalc()">' +
