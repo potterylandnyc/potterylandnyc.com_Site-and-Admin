@@ -1,0 +1,51 @@
+:root { --max-width: 820px; --container-padding: 20px; }
+
+/* Plans / info card */
+.plan-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.plan-item { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 12px; text-align: center; background: var(--color-bg); }
+.plan-price { font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-primary); line-height: 1.1; }
+.plan-tax { font-size: 12px; color: var(--color-text-muted); }
+.plan-name { font-size: 14px; font-weight: 600; color: var(--color-accent); margin-top: 4px; }
+.plan-per { font-size: 12px; color: var(--color-text-muted); }
+.plan-fine { font-size: 13px; color: var(--color-text-muted); margin-bottom: 8px; }
+.promo-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.promo-pill { font-size: 13px; background: #EAF6F0; color: #1E6B45; border-radius: 8px; padding: 8px 12px; }
+.addon-box { border-top: 1px solid var(--color-border); padding-top: 14px; margin-top: 6px; font-size: 14px; color: var(--color-text-muted); }
+.addon-box strong { color: var(--color-text); }
+.link-btn { background: none; border: none; padding: 0; color: var(--color-primary); font-weight: 600; text-decoration: underline; cursor: pointer; font-size: 13px; }
+.link-btn:hover { transform: none; }
+
+/* Date picker */
+.date-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.date-opt { position: relative; display: block; }
+.date-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.date-card { display: block; border: 2px solid var(--color-border); border-radius: var(--radius); padding: 10px 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.date-opt input:checked + .date-card { border-color: var(--color-primary); background: #F4F5FC; }
+.date-day { display: block; font-weight: 700; font-size: 15px; color: var(--color-text); }
+.date-meta { display: block; font-size: 12px; color: var(--color-text-muted); }
+.date-tag { display: inline-block; font-size: 11px; font-weight: 700; color: #1E6B45; background: #EAF6F0; border-radius: 100px; padding: 1px 7px; margin-top: 4px; }
+.date-opt.is-full .date-card { opacity: 0.45; cursor: not-allowed; }
+.date-opt.is-low .date-meta { color: var(--color-accent); font-weight: 600; }
+.more-dates { margin-top: 10px; }
+
+/* People list */
+.person-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; background: var(--color-bg); }
+.person-name { font-weight: 600; font-size: 14px; }
+.person-sub { font-size: 12px; color: var(--color-text-muted); }
+.person-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.person-actions button { background: none; border: none; color: var(--color-text-muted); font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+.person-actions button:hover { background: #F6E9E2; color: var(--color-accent); transform: none; }
+
+/* Pricing card extras */
+.try-one { margin-top: 14px; font-size: 12px; opacity: 0.75; line-height: 1.5; }
+
+/* Add-person popup: form fields need the wider modal */
+.modal.person-modal { max-width: 480px; }
+.modal.firing-modal { max-width: 520px; }
+.firing-modal h5 { font-size: 15px; margin: 14px 0 4px; color: var(--color-primary); }
+.firing-modal p { font-size: 14px; line-height: 1.6; }
+
+@media (max-width: 620px) {
+  .plan-list { grid-template-columns: 1fr; }
+}
+.pricing-card .price-row { gap: 12px; }

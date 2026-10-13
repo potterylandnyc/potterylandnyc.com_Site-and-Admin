@@ -72,6 +72,9 @@ A required phone field blocks submission until `isValidPhone` passes. An optiona
 
 Audited fully 2026-09-16, both directions (index → shared and sunday-club → shared). Don't re-merge the page-specific items above without checking pixel-for-pixel differences or getting explicit sign-off that a visual/behavioral change is wanted.
 
+## Registration-page tier: `registration.css` (added 2026-10-13)
+The "page type" tier described below now exists for registration / landing pages. `sunday-club.html` and `wheel.html` both link, in order: `styles.css` → `registration.css` → their own file. `registration.css` holds the shared header, hero, form extras (`.contact-pref`, `.add-row-btn` — renamed from `.add-child-btn`), the dark price box (`.pricing-card`, `.price-row`…), submit/error/success/closed cards and footer. These can't live in `styles.css` because `index.css` uses the same names (`header`, `.hero`, `footer`) with different styling. Page files keep only what's unique: `sunday-club.css` (location cards, child blocks, OPWDD), `wheel.css` (plans, date picker, people list). Any future landing page links `registration.css` too.
+
 ## Page types (future — not yet built)
 If a second club/program is added later, check first whether it can be a new row in `pgl_programs`/`pgl_program_offerings` read by the same page (parameterized by a URL slug, e.g. `/clubs/spring-club` rewritten via `_redirects`) rather than a duplicated file — the database schema already avoids hardcoding per-program details, so this likely means zero new files per club.
 

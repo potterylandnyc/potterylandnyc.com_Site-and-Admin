@@ -465,7 +465,11 @@ async function loadDiscountRules() {
 // Per-class descriptions. Add real text keyed by the EXACT class name; a
 // friendly placeholder is shown for any class not listed here.
 const CLASS_DESCRIPTIONS = {
-  // 'Adult Wheel Throwing': 'Learn to center clay and pull walls on the wheel…',
+  'Adult Wheel Throwing': 'Learn the art of wheel throwing with Sylvia — Wednesday evenings, 7:30 PM, 1.5-hour class. No experience needed, ages 15+. 1 class $85, 3 classes $235, 5 classes $370 (+ tax).',
+};
+// Classes that book on their own landing page instead of this page's cart.
+const CLASS_PAGES = {
+  'Adult Wheel Throwing': '/wheel.html',
 };
 function classDescription(name) {
   return CLASS_DESCRIPTIONS[name] ||
@@ -525,7 +529,9 @@ function renderSchedule(classes) {
       <div class="row-detail">
         <div class="row-detail-inner">
           <div class="row-desc">${classDescription(g.name)}</div>
-          <button class="row-action-btn" onclick="openClassSchedule('${slug}')">See all dates & book →</button>
+          ${CLASS_PAGES[g.name]
+            ? `<button class="row-action-btn" onclick="location.href='${CLASS_PAGES[g.name]}'">See dates & book →</button>`
+            : `<button class="row-action-btn" onclick="openClassSchedule('${slug}')">See all dates & book →</button>`}
         </div>
       </div>`;
     list.appendChild(row);

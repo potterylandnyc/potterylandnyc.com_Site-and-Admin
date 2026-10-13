@@ -250,6 +250,23 @@ tr:hover td { background: var(--bg); }
 .sc-price-preview .row { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; opacity:0.92; }
 .sc-price-preview .row.total { font-size:17px; font-weight:700; opacity:1; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.25); }
 .sc-override-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+/* --- Wheel Throwing tab --- */
+.wt-promo-bar { display:flex; gap:16px; align-items:center; flex-wrap:wrap; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:13px; }
+.wt-promo-bar label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+.wt-promo-bar label, .wt-date, #wt-m-notify-wrap { text-transform:none; letter-spacing:0; font-weight:400; color:var(--text); }
+.wt-promo-bar input[type=checkbox], .wt-date input[type=checkbox], #wt-m-notify-wrap input[type=checkbox] { width:auto; padding:0; -webkit-appearance:auto; appearance:auto; accent-color:var(--primary); }
+.wt-bar { display:flex; height:6px; border-radius:100px; background:#EEF0F3; overflow:hidden; margin-top:8px; max-width:320px; }
+.wt-bar .c { background:var(--primary); }
+.wt-bar .p { background:#AFC3E0; }
+.wt-dates { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:6px; max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:8px; }
+.wt-date { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; }
+.wt-person-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--bg); }
+.wt-person-row input, .wt-person-row select { padding:7px 10px; font-size:13px; min-width:0; }
+.wt-person-row .wt-person-remove { grid-column:1 / -1; justify-self:end; }
+.wt-phone-row { display:flex; gap:6px; }
+.wt-phone-row select { width:auto; flex-shrink:0; }
+.wt-phone-row input { flex:1; min-width:0; }
+@media (max-width:720px) { .wt-person-row { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -274,6 +291,7 @@ tr:hover td { background: var(--bg); }
       <button class="tab" onclick="switchTab('pricing')">&#128176; Pricing</button>
       <button class="tab" onclick="switchTab('inquiries')">&#128140; Inquiries<span class="inq-tab-count" id="inq-tab-count"></span></button>
       <button class="tab" onclick="switchTab('signups')">&#128197; Sunday Club</button>
+      <button class="tab" onclick="switchTab('wheel')">&#127994; Wheel Throwing</button>
       <button class="tab" onclick="switchTab('campaigns')">&#128179; Campaigns</button>
     </div>
 
@@ -557,6 +575,20 @@ tr:hover td { background: var(--bg); }
       </div>
     </div>
 
+    <!-- WHEEL THROWING -->
+    <div class="tab-panel" id="tab-wheel">
+      <div class="card">
+        <div class="card-title">
+          <span>Wheel Throwing — Adult</span>
+          <span style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="wtOpenModal()">+ Add booking</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadWheel()">Refresh</button>
+          </span>
+        </div>
+        <div id="wheel-body"><div class="empty"><div class="empty-icon">&#127994;</div><p>Loading…</p></div></div>
+      </div>
+    </div>
+
     <!-- CAMPAIGNS -->
     <div class="tab-panel" id="tab-campaigns">
       <div id="alert-campaigns" class="alert"></div>
@@ -608,6 +640,67 @@ tr:hover td { background: var(--bg); }
     </div>
   </div>
 
+  <!-- WHEEL ADD / EDIT MODAL -->
+  <div class="sc-modal-overlay" id="wt-modal">
+    <div class="sc-modal">
+      <button class="sc-modal-close" onclick="wtCloseModal()">&times;</button>
+      <h3 id="wt-modal-title">Add wheel throwing booking</h3>
+      <div class="sc-modal-sub">Pick dates and people — the price uses the same packages and promos as the public page. Anything already paid is credited automatically.</div>
+      <div class="sc-sub">Booking contact</div>
+      <div class="form-grid">
+        <div class="form-group"><label>First name *</label><input type="text" id="wt-m-first"></div>
+        <div class="form-group"><label>Last name *</label><input type="text" id="wt-m-last"></div>
+        <div class="form-group"><label>Phone</label>
+          <div class="wt-phone-row"><select id="wt-m-phone-country" class="phone-country">
+            <option value="+1">US +1</option>
+            <option value="+1-CA">CA +1</option>
+            <option value="+44">UK +44</option>
+            <option value="+972">IL +972</option>
+            <option value="+61">AU +61</option>
+            <option value="+64">NZ +64</option>
+            <option value="+27">ZA +27</option>
+            <option value="+33">FR +33</option>
+            <option value="+49">DE +49</option>
+            <option value="+39">IT +39</option>
+            <option value="+34">ES +34</option>
+            <option value="+31">NL +31</option>
+            <option value="+32">BE +32</option>
+            <option value="+41">CH +41</option>
+            <option value="+43">AT +43</option>
+            <option value="+55">BR +55</option>
+            <option value="+52">MX +52</option>
+            <option value="+54">AR +54</option>
+            <option value="+91">IN +91</option>
+            <option value="+86">CN +86</option>
+            <option value="+81">JP +81</option>
+            <option value="+82">KR +82</option>
+            <option value="+7">RU +7</option>
+            <option value="+20">EG +20</option>
+            <option value="+212">MA +212</option>
+            <option value="+234">NG +234</option>
+            <option value="+other">Other</option>
+          </select><input type="tel" id="wt-m-phone" placeholder="555-000-0000" oninput="formatPhone(this,'wt-m-phone-country')"></div>
+        </div>
+        <div class="form-group"><label>Email</label><input type="email" id="wt-m-email"></div>
+      </div>
+      <div class="sc-sub">Dates</div>
+      <div class="wt-dates" id="wt-m-dates"></div>
+      <div class="sc-sub">Other people</div>
+      <div id="wt-m-people"></div>
+      <button class="btn btn-ghost btn-sm" onclick="wtModalAddPerson()">+ Add person</button>
+      <div class="sc-sub">Promos</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Bring-a-friend</label><select id="wt-m-friend" onchange="wtModalRecalc()"><option value="auto">Automatic</option><option value="on">Apply</option><option value="off">Don't apply</option></select></div>
+        <div class="form-group"><label>Opening class</label><select id="wt-m-first-promo" onchange="wtModalRecalc()"><option value="auto">Automatic</option><option value="on">Apply</option><option value="off">Don't apply</option></select></div>
+      </div>
+      <div class="sc-price-preview" id="wt-m-price"></div>
+      <div class="form-group"><label>Internal note</label><input type="text" id="wt-m-note" placeholder="e.g. Booked via Instagram DM"></div>
+      <label id="wt-m-notify-wrap" style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px;"><input type="checkbox" id="wt-m-notify" checked> Email the customer a "confirmed, pending payment" email (new bookings are saved as Confirmed)</label>
+      <div class="alert alert-error" id="wt-m-error" style="margin-top:12px;"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;"><button class="btn btn-primary" onclick="wtSaveModal()">Save</button><button class="btn btn-ghost" onclick="wtCloseModal()">Cancel</button></div>
+    </div>
+  </div>
+
   <div id="loading-msg" style="text-align:center;padding:60px;color:var(--muted);">Connecting...</div>
 
   <div id="login-screen" style="display:none;max-width:420px;margin:70px auto;text-align:center;padding:44px 32px;background:var(--surface);border:1px solid var(--border);border-radius:14px;">
@@ -652,24 +745,30 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 function switchTab(name) {
-  var names = ['classes','settings','discounts','pricing','inquiries','signups','campaigns'];
+  var names = ['classes','settings','discounts','pricing','inquiries','signups','wheel','campaigns'];
   document.querySelectorAll('.tab').forEach(function(t, i) { t.classList.toggle('active', names[i] === name); });
   document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'signups') loadSignups();
   if (name === 'campaigns') loadCampaigns();
+  if (name === 'wheel') loadWheel();
 }
 
 // --- Deep link: /#sunday-club (or #sunday-clubs / #signups) opens the Sunday Club tab ---
 function scWantSignups(){ return /^#(sunday-club|sunday-clubs|signups)$/.test(location.hash || ''); }
-function scMarkPendingTab(){ if (scWantSignups()){ try { sessionStorage.setItem('pgl_open_tab','signups'); } catch(e){} } }
+function scMarkPendingTab(){
+  if (scWantSignups()){ try { sessionStorage.setItem('pgl_open_tab','signups'); } catch(e){} }
+  if (location.hash === '#wheel'){ try { sessionStorage.setItem('pgl_open_tab','wheel'); } catch(e){} }
+}
 function scApplyPendingTab(){
-  var want = false;
-  try { want = sessionStorage.getItem('pgl_open_tab') === 'signups'; } catch(e){}
+  var want = false, pendingTab = null;
+  try { pendingTab = sessionStorage.getItem('pgl_open_tab'); want = pendingTab === 'signups'; } catch(e){}
+  if (pendingTab === 'wheel' || location.hash === '#wheel'){ try { sessionStorage.removeItem('pgl_open_tab'); } catch(e){} switchTab('wheel'); return; }
   if (!want) want = scWantSignups();
   if (want){ try { sessionStorage.removeItem('pgl_open_tab'); } catch(e){} switchTab('signups'); }
 }
 window.addEventListener('hashchange', function(){
+  if (location.hash === '#wheel'){ var a = document.getElementById('app'); if (a && a.style.display !== 'none') switchTab('wheel'); else scMarkPendingTab(); return; }
   if (!scWantSignups()) return;
   var app = document.getElementById('app');
   if (app && app.style.display !== 'none') switchTab('signups'); // already open & signed in
@@ -1001,6 +1100,7 @@ var INQ_CATS = [
   { id: 'classes', label: 'Classes' },
   { id: 'parties', label: 'Parties' },
   { id: 'sunday', label: 'Sunday Club' },
+  { id: 'wheel', label: 'Wheel Throwing' },
   { id: 'general', label: 'General' }
 ];
 var INQ_STATUS = {
@@ -1013,6 +1113,8 @@ var INQ_STATUS = {
 function inqCategory(q) {
   var s = String(q.interest || '').toLowerCase();
   if (s.indexOf('sunday club') > -1) return 'sunday';
+  if (s.indexOf('wheel') > -1) return 'wheel';
+  if ((Array.isArray(q.classes) ? q.classes : []).some(function(c){ return String(c.name || '').toLowerCase().indexOf('wheel') > -1; })) return 'wheel';
   if (s.indexOf('party') > -1 || s.indexOf('event') > -1) return 'parties';
   if (s.indexOf('class') > -1) return 'classes';
   return 'general';
@@ -1058,7 +1160,7 @@ function renderInquiries() {
   if (tc) { tc.textContent = newCount ? newCount : ''; tc.style.display = newCount ? 'inline-block' : 'none'; }
 
   // filter chips
-  var counts = { all: active.length, classes: 0, parties: 0, sunday: 0, general: 0 };
+  var counts = { all: active.length, classes: 0, parties: 0, sunday: 0, wheel: 0, general: 0 };
   active.forEach(function(q) { counts[inqCategory(q)]++; });
   var chips = INQ_CATS.map(function(c) {
     return '<button class="inq-chip' + (inqFilter === c.id ? ' active' : '') + '" onclick="inqSetFilter(\'' + c.id + '\')">' +
@@ -1166,7 +1268,8 @@ function inqCard(q) {
         ? '<button class="btn btn-ghost btn-sm" onclick="inqRestore(\'' + id + '\')">Restore</button>'
         : '<span class="sc-status-label">Status</span><select class="sc-status-select" onchange="inqSetStatus(\'' + id + '\', this.value)">' + statusOpts + '</select>' +
           '<button class="btn btn-ghost btn-sm" onclick="inqArchive(\'' + id + '\')">Archive</button>' +
-          (inqCategory(q) === 'sunday' ? '<button class="btn btn-primary btn-sm" onclick="inqMoveToSC(\'' + id + '\')">Move to Sunday Club &rarr;</button>' : '')) +
+          (inqCategory(q) === 'sunday' ? '<button class="btn btn-primary btn-sm" onclick="inqMoveToSC(\'' + id + '\')">Move to Sunday Club &rarr;</button>' : '') +
+          (inqCategory(q) === 'wheel' ? '<button class="btn btn-primary btn-sm" onclick="inqMoveToWheel(\'' + id + '\')">Move to Wheel Throwing &rarr;</button>' : '')) +
       '<button class="btn btn-danger btn-sm sc-delete-btn" onclick="inqDelete(\'' + id + '\')">Delete</button>' +
     '</div>';
 
@@ -1946,6 +2049,512 @@ async function scLinkCustomer(id, custId){
   var r = await sbClient.from('pgl_signups').update({ matched_customer_id:custId, updated_at:new Date().toISOString() }).eq('id',id);
   if (r.error){ alert('Error: '+r.error.message); return; }
   await loadSignups();
+}
+
+
+// ==================== WHEEL THROWING ====================
+// Bookings live in pgl_wheel_bookings (+ pgl_wheel_payments). Dates are the
+// existing pgl_classes rows for the class type. Pricing/promo settings are the
+// 'website_wheel_adult' row in settings — the same row wheel.html reads, so the
+// math below must stay in step with wheel.html's computeQuote().
+var WT_CLASS_TYPE = 'Adult Wheel Throwing';
+var WT_SETTINGS_KEY = 'website_wheel_adult';
+var wtData = [];
+var wtPayments = {};
+var wtClasses = [];          // all pgl_classes rows for this class type (incl. past), by date
+var wtCfg = null;
+var wtView = 'bookings';     // 'bookings' | 'schedule'
+var wtStatusFilter = 'active';
+var wtOpen = {};
+var wtSchedOpen = {};
+var wtEditId = null;         // booking being edited in the modal (null = new)
+var wtEditPeople = [];
+
+function wtToday(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function wtFmtDay(d, long){ return new Date(d+'T12:00:00').toLocaleDateString('en-US', long ? { weekday:'long', month:'long', day:'numeric' } : { weekday:'short', month:'short', day:'numeric' }); }
+function wtFmtTime(t){ if(!t) return ''; var p=t.split(':').map(Number); var h=p[0]%12===0?12:p[0]%12; return h+(p[1]?':'+String(p[1]).padStart(2,'0'):'')+' '+(p[0]>=12?'PM':'AM'); }
+function wtClassById(id){ for (var i=0;i<wtClasses.length;i++) if (wtClasses[i].id===id) return wtClasses[i]; return null; }
+
+// ---- Shared phone-field helpers — see claude/style-guide.md "Phone number fields" ----
+function formatPhone(input, countrySelectId) {
+  var country = (document.getElementById(countrySelectId)||{}).value || '+1';
+  var isNorthAmerica = country === '+1' || country === '+1-CA';
+  if (!isNorthAmerica) return;
+  var digits = input.value.replace(/\D/g,'').slice(0,10);
+  var formatted = digits;
+  if (digits.length > 6)      formatted = digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
+  else if (digits.length > 3) formatted = digits.slice(0,3) + '-' + digits.slice(3);
+  input.value = formatted;
+}
+function getFullPhone(countrySelectId, phoneInputId) {
+  var country = (document.getElementById(countrySelectId)||{}).value || '+1';
+  var code = country === '+1-CA' ? '+1' : country === '+other' ? '' : country;
+  var num = document.getElementById(phoneInputId).value.trim();
+  return code ? code + ' ' + num : num;
+}
+function isValidPhone(countrySelectId, phoneInputId) {
+  var country = (document.getElementById(countrySelectId)||{}).value || '+1';
+  var isNorthAmerica = country === '+1' || country === '+1-CA';
+  var raw = (document.getElementById(phoneInputId).value || '').trim();
+  if (!raw) return false;
+  if (!isNorthAmerica) return raw.replace(/\D/g,'').length >= 7;
+  var digits = raw.replace(/\D/g,'');
+  return digits.length === 10 && digits[0] !== '0' && digits[0] !== '1' && digits[3] !== '0' && digits[3] !== '1';
+}
+function splitPhone(full, countrySelectId, phoneInputId) {
+  var sel = document.getElementById(countrySelectId);
+  var inp = document.getElementById(phoneInputId);
+  var m = String(full || '').trim().match(/^(\+\d+)\s+(.*)$/);
+  if (m && sel && Array.prototype.some.call(sel.options, function(o){ return o.value === m[1]; })) { sel.value = m[1]; inp.value = m[2]; }
+  else if (full) { if (sel) sel.value = '+other'; inp.value = String(full).trim(); }
+  else { if (sel) sel.value = '+1'; inp.value = ''; }
+}
+
+// ---- Pricing (mirror of wheel.html) ----
+function wtPackages(){ return ((wtCfg && wtCfg.packages) || []).slice().sort(function(a,b){ return a.classes-b.classes; }); }
+function wtPricePerPerson(n){
+  if (n<=0) return 0;
+  var pk = wtPackages();
+  var exact = pk.filter(function(p){ return p.classes===n; })[0];
+  if (exact) return Number(exact.price);
+  var lower = pk.filter(function(p){ return p.classes<=n; });
+  var tier = lower.length ? lower[lower.length-1] : pk[0];
+  return Math.ceil((Number(tier.price)/tier.classes)*n - 0.0001);
+}
+// opts.friend / opts.firstClass: true/false to force a promo on/off (staff choice), undefined = automatic.
+function wtComputeQuote(dates, people, opts){
+  opts = opts || {};
+  var n = dates.length, per = wtPricePerPerson(n);
+  var friendAuto = !!(wtCfg && wtCfg.friend_promo_on) && people>=2;
+  var fcDate = wtCfg && wtCfg.first_class_promo_date;
+  var firstAuto = !!(wtCfg && wtCfg.first_class_promo_on && fcDate) && dates.indexOf(fcDate)>-1;
+  var friendOn = opts.friend===undefined ? friendAuto : (opts.friend && people>=2);
+  var firstOn = opts.firstClass===undefined ? firstAuto : (opts.firstClass && !!fcDate && dates.indexOf(fcDate)>-1);
+  var friendAmt = friendOn ? Number(wtCfg.friend_promo_amount)||0 : 0;
+  var firstAmt = firstOn ? Number(wtCfg.first_class_promo_amount)||0 : 0;
+  var perAfter = Math.max(0, per-friendAmt-firstAmt);
+  var subtotal = perAfter*people;
+  var rate = Number(wtCfg && wtCfg.tax_rate)||0;
+  var tax = Math.round(subtotal*rate*100)/100;
+  return { class_count:n, people:people, price_per_person:per, full:per*people,
+    friend_amount:friendAmt, friend_applied:friendAmt>0, first_class_amount:firstAmt, first_class_applied:firstAmt>0,
+    first_class_date: firstAmt>0 ? fcDate : null, per_person_after:perAfter,
+    subtotal:subtotal, tax_rate:rate, tax:tax, total:Math.round((subtotal+tax)*100)/100, packages: wtCfg && wtCfg.packages };
+}
+function wtAddonsTotal(b){ return (Array.isArray(b.addons)?b.addons:[]).reduce(function(s,a){ return s+(Number(a.total)||0); },0); }
+function wtPaid(id){ return (wtPayments[id]||[]).reduce(function(s,p){ return s+(Number(p.amount)||0); },0); }
+function wtOwed(b){ return Number(b.amount_due)||0; }
+
+// ---- Load ----
+async function loadWheel(){
+  if (!sbClient) return;
+  var body = document.getElementById('wheel-body');
+  var r = await Promise.all([
+    sbClient.from('pgl_wheel_bookings').select('*').order('created_at',{ascending:false}),
+    sbClient.from('pgl_wheel_payments').select('*').order('created_at'),
+    sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('name', WT_CLASS_TYPE).order('date').order('time'),
+    sbClient.from('settings').select('value').eq('key', WT_SETTINGS_KEY).maybeSingle()
+  ]);
+  if (r[0].error){ body.innerHTML = '<div class="empty"><p>Could not load wheel bookings: '+scEsc(r[0].error.message)+'</p></div>'; return; }
+  wtData = r[0].data || [];
+  wtPayments = {};
+  (r[1].data||[]).forEach(function(p){ (wtPayments[p.booking_id]=wtPayments[p.booking_id]||[]).push(p); });
+  wtClasses = r[2].data || [];
+  wtCfg = (r[3].data && r[3].data.value) || { packages:[{classes:1,price:85},{classes:3,price:235},{classes:5,price:370}], tax_rate:0.08875, paint_addon_price:25 };
+  if (!customersCache){ var rc = await sbClient.from('customers').select('id,first_name,last_name,phone,email'); customersCache = rc.data || []; }
+  renderWheel();
+}
+
+// Which of this booking's dates are over capacity, counting confirmed bookings
+// plus pending ones that came in before it (first come, first served).
+function wtWaitlistDates(b){
+  if (b.status!=='pending') return [];
+  var out = [];
+  (b.class_ids||[]).forEach(function(cid){
+    var c = wtClassById(cid); if (!c) return;
+    var used = 0;
+    wtData.forEach(function(o){
+      if ((o.class_ids||[]).indexOf(cid)<0) return;
+      if (o.status==='confirmed' || (o.status==='pending' && o.created_at<=b.created_at)) used += Number(o.people_count)||0;
+    });
+    if (used > (c.total_spots||0)) out.push(c.date);
+  });
+  return out;
+}
+
+function wtSetView(v){ wtView=v; renderWheel(); }
+function wtSetStatusFilter(v){ wtStatusFilter=v; renderWheel(); }
+function wtStatusBadge(st){
+  var c = { pending:['#8A6D00','#FFF6DB','Pending'], confirmed:['#1B6B42','#EAF6F0','Confirmed'], cancelled:['#A32D2D','#FCEBEB','Cancelled'], needs_info:['#8A4A12','#FFF1E6','Needs info'] }[st] || ['#8A6D00','#FFF6DB',st];
+  return '<span class="badge" style="background:'+c[1]+';color:'+c[0]+';">'+c[2]+'</span>';
+}
+
+function renderWheel(){
+  var body = document.getElementById('wheel-body');
+  var live = wtData.filter(function(b){ return b.status!=='needs_info'; });
+  var collected=0, tax=0, outstanding=0;
+  live.forEach(function(b){
+    var paid = wtPaid(b.id); collected += paid;
+    var r = (b.quote && b.quote.tax_rate!=null) ? Number(b.quote.tax_rate) : (Number(wtCfg.tax_rate)||0);
+    if (r>0) tax += paid*(r/(1+r));
+    if (b.status!=='cancelled') outstanding += Math.max(0, wtOwed(b)-paid);
+  });
+  var pending = wtData.filter(function(b){ return b.status==='pending'; }).length;
+  var needs = wtData.filter(function(b){ return b.status==='needs_info'; }).length;
+  var summary = '<div class="sc-summary">' +
+    scStat('Total collected', scMoney(collected), 'accent') +
+    scStat('Sales tax (set aside)', scMoney(tax), '') +
+    scStat('Net income (after tax)', scMoney(collected-tax), 'accent') +
+    scStat('Outstanding', scMoney(outstanding), 'warn') +
+    scStat('Pending requests', pending, '') +
+    scStat('Needs info', needs, '') + '</div>';
+
+  var promo = '<div class="wt-promo-bar"><span class="sc-status-label">Promos</span>' +
+    '<label><input type="checkbox" '+(wtCfg.friend_promo_on?'checked':'')+' onchange="wtSetPromo(\'friend_promo_on\', this.checked)"> Bring-a-friend ('+scMoney(wtCfg.friend_promo_amount||0)+' off each)</label>' +
+    '<label><input type="checkbox" '+(wtCfg.first_class_promo_on?'checked':'')+' onchange="wtSetPromo(\'first_class_promo_on\', this.checked)"> Opening class '+(wtCfg.first_class_promo_date?wtFmtDay(wtCfg.first_class_promo_date):'')+' ('+scMoney(wtCfg.first_class_promo_amount||0)+' off)</label>' +
+    '<span class="muted" style="font-size:12px;">Changes the public page right away. Existing bookings keep their price.</span></div>';
+
+  var controls = '<div class="sc-controls"><div class="sc-seg">' +
+      '<button class="'+(wtView==='bookings'?'active':'')+'" onclick="wtSetView(\'bookings\')">Bookings</button>' +
+      '<button class="'+(wtView==='schedule'?'active':'')+'" onclick="wtSetView(\'schedule\')">Upcoming schedule</button>' +
+    '</div>' +
+    (wtView==='bookings' ? '<select onchange="wtSetStatusFilter(this.value)" style="max-width:220px;">' +
+      [['active','Pending + confirmed'],['pending','Pending'],['confirmed','Confirmed'],['needs_info','Needs info'],['cancelled','Cancelled'],['all','All']].map(function(o){ return '<option value="'+o[0]+'"'+(wtStatusFilter===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('') +
+    '</select>' : '') + '</div>';
+
+  body.innerHTML = summary + promo + controls + (wtView==='schedule' ? wtRenderSchedule() : wtRenderList());
+}
+
+function wtRenderList(){
+  var list = wtData.filter(function(b){
+    if (wtStatusFilter==='all') return true;
+    if (wtStatusFilter==='active') return b.status==='pending' || b.status==='confirmed' || b.status==='needs_info';
+    return b.status===wtStatusFilter;
+  });
+  if (!list.length) return '<div class="empty"><div class="empty-icon">&#127994;</div><p>No bookings here yet.</p></div>';
+  return list.map(wtCard).join('');
+}
+
+function wtCard(b){
+  var paid = wtPaid(b.id), owed = wtOwed(b), bal = owed-paid;
+  var balCls = bal<=0 && owed>0 ? 'clear' : (paid>0?'owed':'');
+  var dates = (b.class_dates||[]).slice().sort();
+  var wl = wtWaitlistDates(b);
+  var created = new Date(b.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  var name = ((b.contact_first||'')+' '+(b.contact_last||'')).trim() || '(no name)';
+  var people = Array.isArray(b.participants) ? b.participants : [];
+
+  var head = '<div class="sc-reg-head" onclick="wtToggle(\''+b.id+'\')"><div class="sc-reg-main">' +
+    '<div class="sc-reg-name">'+scEsc(name)+' '+wtStatusBadge(b.status)+
+      (b.ref_code?' <span class="badge" style="background:#EEF2F7;color:#33415C;font-family:ui-monospace,Menlo,Consolas,monospace;">'+scEsc(b.ref_code)+'</span>':'')+
+      (wl.length?' <span class="badge" style="background:#FCEBEB;color:#A32D2D;">Waitlist — over 12 ('+wl.map(function(d){return wtFmtDay(d);}).join(', ')+')</span>':'')+
+      (b.utm_source?' <span class="badge" style="background:#FFF6DB;color:#8A6D00;">via '+scEsc(b.utm_source)+'</span>':'')+
+      (b.source==='manual'?' <span class="badge" style="background:#F5F5F5;color:var(--muted);">Manual entry</span>':'')+
+      (b.source==='inquiry'?' <span class="badge" style="background:#F5F5F5;color:var(--muted);">From inquiry</span>':'')+'</div>' +
+    '<div class="sc-reg-meta">'+(b.people_count||1)+' '+((b.people_count||1)===1?'person':'people')+' · '+(dates.length?dates.length+' class'+(dates.length===1?'':'es')+': '+dates.map(function(d){ return wtFmtDay(d); }).join(', '):'no dates yet')+' · '+created+'</div>' +
+  '</div><div class="sc-reg-money"><div class="bal '+balCls+'">'+scMoney(bal)+(bal>0?' due':'')+'</div>'+scMoney(paid)+' of '+scMoney(owed)+'</div></div>';
+
+  var actions = '<div class="sc-reg-actions"><label class="sc-status-label">Status</label>' +
+    '<select class="sc-status-select" onchange="wtSetStatus(\''+b.id+'\',this.value,this)">' +
+      ['needs_info','pending','confirmed','cancelled'].map(function(st){ return '<option value="'+st+'"'+(b.status===st?' selected':'')+'>'+({needs_info:'Needs info',pending:'Pending',confirmed:'Confirmed (arranging payment)',cancelled:'Cancelled'})[st]+'</option>'; }).join('') +
+    '</select>' +
+    '<button class="btn btn-ghost btn-sm" onclick="wtOpenModal(\''+b.id+'\')">Edit dates / people</button>' +
+    '<button class="btn btn-ghost btn-sm" onclick="wtAddPaint(\''+b.id+'\')">+ '+scMoney(wtCfg.paint_addon_price||25)+' paint/refire</button>' +
+    '<button class="btn btn-danger btn-sm sc-delete-btn" onclick="wtDelete(\''+b.id+'\')">Delete</button></div>';
+
+  if (!wtOpen[b.id]) return '<div class="sc-reg" id="wt-'+b.id+'">'+head+actions+'</div>';
+
+  var q = b.quote || {};
+  var addons = Array.isArray(b.addons)?b.addons:[];
+  var peopleHtml = people.map(function(p){
+    return '<div class="sc-child"><span class="cname">'+scEsc((p.first||'')+' '+(p.last||''))+'</span>'+(p.is_contact?' <span class="muted">(booking contact)</span>':'')+
+      (p.phone?' · '+scEsc(p.phone):'')+(p.email?' · '+scEsc(p.email):'')+'</div>';
+  }).join('') || '<div class="muted" style="font-size:13px;">No names listed.</div>';
+  var ledger = (wtPayments[b.id]||[]).map(function(p){
+    return '<div class="sc-ledger-row"><span>'+new Date((p.paid_on||p.created_at)+(p.paid_on?'T12:00:00':'')).toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+scMethodLabel(p.method)+(p.note?' · '+scEsc(p.note):'')+'</span><span>'+scMoney(p.amount)+'</span></div>';
+  }).join('') || '<div style="font-size:12px;color:var(--muted);padding:4px 0;">No payments recorded.</div>';
+  var priceLines = (q.class_count ? q.class_count+' class'+(q.class_count===1?'':'es')+' × '+q.people+' @ '+scMoney(q.price_per_person)+' = '+scMoney(q.full)+'<br>' : '') +
+    (q.friend_applied ? 'Bring-a-friend: −'+scMoney(q.friend_amount*q.people)+'<br>' : '') +
+    (q.first_class_applied ? 'Opening class: −'+scMoney(q.first_class_amount*q.people)+'<br>' : '') +
+    (q.subtotal!=null ? 'Subtotal '+scMoney(q.subtotal)+' · Tax '+scMoney(q.tax)+' · <strong>'+scMoney(q.total)+'</strong><br>' : '') +
+    addons.map(function(a){ return scEsc(a.label||'Add-on')+': '+scMoney(a.total)+(a.tax?' (incl. '+scMoney(a.tax)+' tax)':'')+'<br>'; }).join('');
+
+  var detail = '<div class="sc-detail" style="display:block;"><div class="sc-detail-grid"><div>' +
+      '<div class="sc-sub">Contact</div><div style="font-size:13px;line-height:1.7;">'+scEsc(b.contact_phone||'—')+'<br>'+scEsc(b.contact_email||'—')+'<br>Prefers: <strong>'+scEsc(b.contact_notify||'Email')+'</strong></div>' +
+      (b.comments?'<div class="sc-sub" style="margin-top:10px;">Comments</div><div style="font-size:13px;white-space:pre-wrap;">'+scEsc(b.comments)+'</div>':'') +
+      '<div class="sc-sub" style="margin-top:16px;">People</div>'+peopleHtml +
+    '</div><div>' +
+      '<div class="sc-sub">Money</div><div style="font-size:13px;margin-bottom:8px;line-height:1.6;">'+priceLines +
+        'Amount due: <strong>'+scMoney(owed)+'</strong>'+(b.amount_due_is_override?' <span class="badge" style="background:#FFF6DB;color:#8A6D00;">override</span>':'')+
+        '<br>Paid: <strong>'+scMoney(paid)+'</strong> · Balance: <strong>'+scMoney(bal)+'</strong></div>' +
+      (b.override_note?'<div style="font-size:12px;color:var(--muted);font-style:italic;">Override note: '+scEsc(b.override_note)+'</div>':'') +
+      '<div class="sc-sub" style="margin-top:12px;">Payments</div>'+ledger +
+      '<div class="sc-inline"><input type="number" step="0.01" placeholder="Amount" id="wt-pay-amt-'+b.id+'">' +
+        '<select id="wt-pay-method-'+b.id+'"><option value="zelle">Electronic — Zelle</option><option value="venmo">Electronic — Venmo</option><option value="cashapp">Electronic — CashApp</option><option value="paypal">Electronic — PayPal</option><option value="electronic_other">Electronic — Other</option><option value="credit_card">Credit card</option><option value="other">Other</option></select></div>' +
+      '<input type="text" placeholder="Note (optional)" id="wt-pay-note-'+b.id+'" style="margin-top:8px;">' +
+      '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="wtAddPayment(\''+b.id+'\')">Record payment</button>' +
+      '<div class="sc-sub" style="margin-top:16px;">Override amount due</div>' +
+      '<div class="sc-inline"><input type="number" step="0.01" placeholder="New amount due" id="wt-ovr-amt-'+b.id+'"><input type="text" placeholder="Reason" id="wt-ovr-note-'+b.id+'"></div>' +
+      '<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="wtOverride(\''+b.id+'\')">Save override</button>' +
+    '</div></div>' +
+    '<div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:14px;">' +
+      '<input type="text" placeholder="Staff note" id="wt-note-'+b.id+'" value="'+scEsc(b.staff_notes||'')+'" style="flex:1;min-width:160px;">' +
+      '<button class="btn btn-ghost btn-sm" onclick="wtSaveNote(\''+b.id+'\')">Save note</button></div></div>';
+
+  return '<div class="sc-reg open" id="wt-'+b.id+'">'+head+actions+detail+'</div>';
+}
+function wtToggle(id){ wtOpen[id]=!wtOpen[id]; renderWheel(); }
+
+function wtRenderSchedule(){
+  var today = wtToday();
+  var upcoming = wtClasses.filter(function(c){ return c.date>=today && c.active!==false; });
+  if (!upcoming.length) return '<div class="empty"><div class="empty-icon">&#128197;</div><p>No upcoming dates. Add them on the Schedule tab.</p></div>';
+  var rows = upcoming.map(function(c){
+    var bookings = wtData.filter(function(b){ return (b.class_ids||[]).indexOf(c.id)>-1 && (b.status==='confirmed' || b.status==='pending'); });
+    var conf = 0, pend = 0;
+    bookings.forEach(function(b){ if (b.status==='confirmed') conf += Number(b.people_count)||0; else pend += Number(b.people_count)||0; });
+    var cap = c.total_spots||12, left = cap-conf;
+    var pct = Math.min(100, Math.round(conf/cap*100)), pctP = Math.min(100-pct, Math.round(pend/cap*100));
+    var open = wtSchedOpen[c.id];
+    var names = bookings.slice().sort(function(a,b){ return a.created_at<b.created_at?-1:1; }).map(function(b){
+      var ppl = (Array.isArray(b.participants)&&b.participants.length ? b.participants : [{first:b.contact_first,last:b.contact_last}]).map(function(p){ return scEsc((p.first||'')+' '+(p.last||'')); }).join(', ');
+      return '<div class="sc-child">'+ppl+' '+wtStatusBadge(b.status)+(b.ref_code?' <span class="muted" style="font-size:12px;">'+scEsc(b.ref_code)+'</span>':'')+
+        (wtWaitlistDates(b).indexOf(c.date)>-1?' <span class="badge" style="background:#FCEBEB;color:#A32D2D;">Waitlist</span>':'')+
+        ' <span class="muted" style="font-size:12px;">'+scEsc(b.contact_phone||'')+'</span></div>';
+    }).join('') || '<div class="muted" style="font-size:13px;">Nobody booked yet.</div>';
+    return '<div class="sc-reg'+(open?' open':'')+'"><div class="sc-reg-head" onclick="wtSchedToggle(\''+c.id+'\')">' +
+      '<div class="sc-reg-main"><div class="sc-reg-name">'+wtFmtDay(c.date, true)+' <span class="muted" style="font-weight:400;font-size:13px;">'+wtFmtTime(c.time)+'</span></div>' +
+      '<div class="wt-bar"><span class="c" style="width:'+pct+'%"></span><span class="p" style="width:'+pctP+'%"></span></div></div>' +
+      '<div class="sc-reg-money"><div class="bal'+(left<=0?' owed':'')+'">'+conf+' confirmed'+(pend?' + '+pend+' pending':'')+'</div>'+(left>0?left+' of '+cap+' seats left':'Full')+'</div></div>' +
+      (open?'<div class="sc-detail" style="display:block;padding-top:12px;">'+names+'</div>':'') + '</div>';
+  }).join('');
+  return '<div class="muted" style="font-size:12px;margin-bottom:10px;">Bar: dark = confirmed, light = pending. Click a date to see who\'s coming.</div>' + rows;
+}
+function wtSchedToggle(id){ wtSchedOpen[id]=!wtSchedOpen[id]; renderWheel(); }
+
+// ---- Actions ----
+function wtNotify(payload){
+  try { return fetch(SB_URL + '/functions/v1/notify-wheel', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SB_KEY }, body: JSON.stringify(payload) }).catch(function(){}); } catch(_){}
+}
+function wtFind(id){ for (var i=0;i<wtData.length;i++) if (wtData[i].id===id) return wtData[i]; return null; }
+
+async function wtSetStatus(id, status, sel){
+  var b = wtFind(id); if (!b) return;
+  if (status==='confirmed'){
+    if (!(b.class_ids||[]).length){ alert('Add dates to this booking first (Edit dates / people).'); if (sel) sel.value=b.status; return; }
+    var over = (b.class_ids||[]).map(wtClassById).filter(function(c){
+      if (!c) return false;
+      var conf = 0;
+      wtData.forEach(function(o){ if (o.id!==id && o.status==='confirmed' && (o.class_ids||[]).indexOf(c.id)>-1) conf += Number(o.people_count)||0; });
+      return conf + (Number(b.people_count)||1) > (c.total_spots||12);
+    });
+    if (over.length && !confirm('Confirming this booking puts these dates over capacity:\n\n' + over.map(function(c){ return wtFmtDay(c.date); }).join('\n') + '\n\nConfirm anyway?')){ if (sel) sel.value=b.status; return; }
+  }
+  var r = await sbClient.from('pgl_wheel_bookings').update({ status:status }).eq('id', id);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  if (status==='confirmed') await wtNotify({ booking_id:id, type:'confirmed' });
+  await loadWheel();
+}
+async function wtAddPayment(id){
+  var amt = parseFloat(document.getElementById('wt-pay-amt-'+id).value);
+  if (!amt || amt<=0){ alert('Enter a payment amount.'); return; }
+  var r = await sbClient.from('pgl_wheel_payments').insert([{ booking_id:id, amount:amt, method:document.getElementById('wt-pay-method-'+id).value, note:document.getElementById('wt-pay-note-'+id).value, created_by:(authUser?authUser.email:'') }]);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  await wtNotify({ booking_id:id, type:'payment', payment_amount:amt });
+  await loadWheel();
+}
+async function wtOverride(id){
+  var amt = parseFloat(document.getElementById('wt-ovr-amt-'+id).value);
+  if (isNaN(amt)){ alert('Enter a new amount due.'); return; }
+  var r = await sbClient.from('pgl_wheel_bookings').update({ amount_due:amt, amount_due_is_override:true, override_note:document.getElementById('wt-ovr-note-'+id).value }).eq('id', id);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  await loadWheel();
+}
+async function wtSaveNote(id){
+  var r = await sbClient.from('pgl_wheel_bookings').update({ staff_notes:document.getElementById('wt-note-'+id).value }).eq('id', id);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  await loadWheel();
+}
+async function wtDelete(id){
+  if (!confirm('Permanently delete this booking? This removes it and any recorded payments, and frees its seats. Cannot be undone.')) return;
+  var r = await sbClient.from('pgl_wheel_bookings').delete().eq('id', id);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  await loadWheel();
+}
+async function wtAddPaint(id){
+  var b = wtFind(id); if (!b) return;
+  var unit = Number(wtCfg.paint_addon_price)||25;
+  var n = parseInt(prompt('Paint / 2nd firing add-on at '+scMoney(unit)+' each (+ tax).\n\nHow many pieces?', '1'), 10);
+  if (!n || n<1) return;
+  var rate = Number((b.quote && b.quote.tax_rate!=null) ? b.quote.tax_rate : wtCfg.tax_rate)||0;
+  var sub = unit*n, tax = Math.round(sub*rate*100)/100;
+  var addon = { type:'paint', label:'Paint & 2nd firing × '+n, qty:n, unit:unit, subtotal:sub, tax:tax, total:Math.round((sub+tax)*100)/100, added_on:wtToday(), by:(authUser?authUser.email:'') };
+  var addons = (Array.isArray(b.addons)?b.addons:[]).concat([addon]);
+  var r = await sbClient.from('pgl_wheel_bookings').update({ addons:addons, amount_due:Math.round(((Number(b.amount_due)||0)+addon.total)*100)/100 }).eq('id', id);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  wtOpen[id] = true;
+  await loadWheel();
+}
+async function wtSetPromo(key, on){
+  var r0 = await sbClient.from('settings').select('value').eq('key', WT_SETTINGS_KEY).maybeSingle();
+  var val = Object.assign({}, (r0.data && r0.data.value) || wtCfg);
+  val[key] = on;
+  var r = await sbClient.from('settings').update({ value: val }).eq('key', WT_SETTINGS_KEY);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  wtCfg = val; renderWheel();
+}
+
+// ---- Add / edit modal ----
+function wtOpenModal(id){
+  wtEditId = id || null;
+  var b = id ? wtFind(id) : null;
+  document.getElementById('wt-modal-title').textContent = b ? 'Edit booking' + (b.ref_code?' '+b.ref_code:'') : 'Add wheel throwing booking';
+  document.getElementById('wt-m-first').value = b ? (b.contact_first||'') : '';
+  document.getElementById('wt-m-last').value = b ? (b.contact_last||'') : '';
+  splitPhone(b ? b.contact_phone : '', 'wt-m-phone-country', 'wt-m-phone');
+  document.getElementById('wt-m-email').value = b ? (b.contact_email||'') : '';
+  document.getElementById('wt-m-note').value = b ? (b.staff_notes||'') : '';
+  document.getElementById('wt-m-notify').checked = !b;
+  document.getElementById('wt-m-notify-wrap').style.display = b ? 'none' : '';
+  wtEditPeople = b ? (Array.isArray(b.participants)?b.participants:[]).filter(function(p){ return !p.is_contact; }).map(function(p){ return Object.assign({}, p); }) : [];
+  // Dates: upcoming ones + any already on this booking (even if past).
+  var today = wtToday(), mine = b ? (b.class_ids||[]) : [];
+  var list = wtClasses.filter(function(c){ return (c.date>=today && c.active!==false) || mine.indexOf(c.id)>-1; });
+  document.getElementById('wt-m-dates').innerHTML = list.map(function(c){
+    var conf = 0; wtData.forEach(function(o){ if (o.id!==wtEditId && o.status==='confirmed' && (o.class_ids||[]).indexOf(c.id)>-1) conf += Number(o.people_count)||0; });
+    var left = (c.total_spots||12)-conf;
+    return '<label class="wt-date"><input type="checkbox" value="'+c.id+'" data-date="'+c.date+'"'+(mine.indexOf(c.id)>-1?' checked':'')+' onchange="wtModalRecalc()"> '+wtFmtDay(c.date)+(c.date<today?' (past)':'')+' <span class="muted">· '+(left>0?left+' left':'full')+'</span></label>';
+  }).join('') || '<div class="muted">No dates on the schedule.</div>';
+  var q = b && b.quote || {};
+  document.getElementById('wt-m-friend').value = b && q.friend_applied!=null ? (q.friend_applied?'on':'off') : 'auto';
+  document.getElementById('wt-m-first-promo').value = b && q.first_class_applied!=null ? (q.first_class_applied?'on':'off') : 'auto';
+  document.getElementById('wt-m-error').classList.remove('show');
+  wtRenderModalPeople();
+  wtModalRecalc();
+  document.getElementById('wt-modal').classList.add('open');
+}
+function wtCloseModal(){ document.getElementById('wt-modal').classList.remove('open'); }
+function wtRenderModalPeople(){
+  var opts = document.getElementById('wt-m-phone-country').innerHTML;
+  document.getElementById('wt-m-people').innerHTML = wtEditPeople.map(function(p, i){
+    return '<div class="wt-person-row">' +
+      '<input type="text" placeholder="First name *" id="wt-p-first-'+i+'" value="'+scEsc(p.first||'')+'">' +
+      '<input type="text" placeholder="Last name *" id="wt-p-last-'+i+'" value="'+scEsc(p.last||'')+'">' +
+      '<div class="wt-phone-row"><select class="phone-country" id="wt-p-phone-country-'+i+'">'+opts+'</select>' +
+        '<input type="tel" placeholder="Phone (optional)" id="wt-p-phone-'+i+'" oninput="formatPhone(this,\'wt-p-phone-country-'+i+'\')"></div>' +
+      '<input type="email" placeholder="Email (optional)" id="wt-p-email-'+i+'" value="'+scEsc(p.email||'')+'">' +
+      '<button class="btn btn-ghost btn-sm wt-person-remove" onclick="wtModalRemovePerson('+i+')">Remove</button></div>';
+  }).join('');
+  wtEditPeople.forEach(function(p, i){ splitPhone(p.phone||'', 'wt-p-phone-country-'+i, 'wt-p-phone-'+i); });
+}
+// Reads the person rows back into wtEditPeople. Returns an error message, or '' if all valid.
+function wtReadModalPeople(){
+  var err = '';
+  wtEditPeople = wtEditPeople.map(function(p, i){
+    var first = document.getElementById('wt-p-first-'+i).value.trim();
+    var last = document.getElementById('wt-p-last-'+i).value.trim();
+    var raw = document.getElementById('wt-p-phone-'+i).value.trim();
+    if (!err && (!first || !last)) err = 'Each extra person needs a first and last name.';
+    if (!err && raw && !isValidPhone('wt-p-phone-country-'+i, 'wt-p-phone-'+i)) err = 'Phone for ' + (first || 'person ' + (i+2)) + ' looks incomplete — fix it or leave it blank.';
+    return { first:first, last:last, phone: raw ? getFullPhone('wt-p-phone-country-'+i, 'wt-p-phone-'+i) : '', email: document.getElementById('wt-p-email-'+i).value.trim() };
+  });
+  return err;
+}
+function wtModalRemovePerson(i){ wtReadModalPeople(); wtEditPeople.splice(i,1); wtRenderModalPeople(); wtModalRecalc(); }
+function wtModalAddPerson(){ wtReadModalPeople(); wtEditPeople.push({ first:'', last:'', phone:'', email:'' }); wtRenderModalPeople(); wtModalRecalc(); }
+function wtModalDates(){ return Array.prototype.map.call(document.querySelectorAll('#wt-m-dates input:checked'), function(i){ return { id:i.value, date:i.getAttribute('data-date') }; }); }
+function wtPromoOpt(id){ var v=document.getElementById(id).value; return v==='auto'?undefined:(v==='on'); }
+function wtModalQuote(){
+  var d = wtModalDates().map(function(x){ return x.date; });
+  return wtComputeQuote(d, 1+wtEditPeople.length, { friend: wtPromoOpt('wt-m-friend'), firstClass: wtPromoOpt('wt-m-first-promo') });
+}
+function wtModalRecalc(){
+  var q = wtModalQuote(), el = document.getElementById('wt-m-price');
+  var b = wtEditId ? wtFind(wtEditId) : null;
+  var addons = b ? wtAddonsTotal(b) : 0, paid = b ? wtPaid(b.id) : 0;
+  if (!q.class_count){ el.innerHTML = '<div class="row"><span>Pick at least one date</span></div>'; return; }
+  var due = Math.round((q.total+addons)*100)/100;
+  el.innerHTML =
+    '<div class="row"><span>'+q.class_count+' class'+(q.class_count===1?'':'es')+' × '+q.people+' @ '+scMoney(q.price_per_person)+'</span><span>'+scMoney(q.full)+'</span></div>' +
+    (q.friend_applied?'<div class="row"><span>Bring-a-friend</span><span>−'+scMoney(q.friend_amount*q.people)+'</span></div>':'') +
+    (q.first_class_applied?'<div class="row"><span>Opening class</span><span>−'+scMoney(q.first_class_amount*q.people)+'</span></div>':'') +
+    '<div class="row"><span>Tax ('+(q.tax_rate*100).toFixed(3).replace(/\.?0+$/,'')+'%)</span><span>'+scMoney(q.tax)+'</span></div>' +
+    (addons?'<div class="row"><span>Add-ons already on booking</span><span>'+scMoney(addons)+'</span></div>':'') +
+    '<div class="row total"><span>Amount due</span><span>'+scMoney(due)+'</span></div>' +
+    (paid?'<div class="row"><span>Already paid (credited)</span><span>−'+scMoney(paid)+'</span></div><div class="row"><span><strong>Balance after save</strong></span><span><strong>'+scMoney(due-paid)+'</strong></span></div>':'') +
+    (b && b.amount_due_is_override?'<div class="row" style="opacity:1;">⚠ This booking has a price override — saving replaces it with the calculated price.</div>':'');
+}
+function wtModalError(msg){ var e=document.getElementById('wt-m-error'); e.textContent=msg; e.classList.add('show'); }
+async function wtSaveModal(){
+  var first = document.getElementById('wt-m-first').value.trim();
+  var last = document.getElementById('wt-m-last').value.trim();
+  var email = document.getElementById('wt-m-email').value.trim();
+  var phoneRaw = document.getElementById('wt-m-phone').value.trim();
+  if (!first || !last) return wtModalError('First and last name are required.');
+  if (phoneRaw && !isValidPhone('wt-m-phone-country','wt-m-phone')) return wtModalError('Phone number looks incomplete or invalid (or leave it blank).');
+  if (!phoneRaw && !email) return wtModalError('Enter at least a phone or an email.');
+  var pErr = wtReadModalPeople(); if (pErr) return wtModalError(pErr);
+  var dates = wtModalDates();
+  var q = wtModalQuote();
+  var phone = phoneRaw ? getFullPhone('wt-m-phone-country','wt-m-phone') : null;
+  var b = wtEditId ? wtFind(wtEditId) : null;
+  var contactP = { first:first, last:last, phone:phone||'', email:email, is_contact:true };
+  var payload = {
+    contact_first:first, contact_last:last, contact_phone:phone, contact_email:email||null,
+    participants: [contactP].concat(wtEditPeople),
+    people_count: 1+wtEditPeople.length,
+    class_ids: dates.map(function(d){ return d.id; }), class_dates: dates.map(function(d){ return d.date; }), class_count: dates.length,
+    quote: q, amount_due: Math.round((q.total + (b?wtAddonsTotal(b):0))*100)/100,
+    amount_due_is_override:false, override_note:null,
+    staff_notes: document.getElementById('wt-m-note').value
+  };
+  var r, sendConfirm = false;
+  if (b){
+    if (b.status==='needs_info' && dates.length && confirm('Dates are set. Move this from "Needs info" to Pending?')) payload.status = 'pending';
+    r = await sbClient.from('pgl_wheel_bookings').update(payload).eq('id', b.id);
+  } else {
+    if (!dates.length) return wtModalError('Pick at least one date.');
+    payload.id = crypto.randomUUID();
+    payload.status = 'confirmed'; payload.source = 'manual'; payload.contact_notify = 'Email'; payload.branch_id = 'fb';
+    sendConfirm = document.getElementById('wt-m-notify').checked && !!email;
+    r = await sbClient.from('pgl_wheel_bookings').insert([payload]);
+  }
+  if (r.error) return wtModalError('Error: '+r.error.message);
+  if (sendConfirm) await wtNotify({ booking_id:payload.id, type:'confirmed' });
+  wtCloseModal();
+  await loadWheel();
+}
+
+// Wheel throwing inquiry -> a "needs info" booking on the Wheel Throwing tab.
+async function inqMoveToWheel(id){
+  var q = inqFind(id); if (!q) return;
+  if (!confirm('Move ' + inqName(q) + ' to the Wheel Throwing tab?\n\nIt becomes a booking marked "Needs info" (no seats held) and this inquiry is archived.')) return;
+  var ex = await sbClient.from('pgl_wheel_bookings').select('id').eq('inquiry_id', id).limit(1);
+  if (ex.data && ex.data.length){ alert('This inquiry was already moved to Wheel Throwing.'); return; }
+  // Carry over any dates picked in the homepage cart (matched by class id, or by date).
+  var cls = Array.isArray(q.classes) ? q.classes : [];
+  if (!wtClasses.length){ var rc = await sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('name', WT_CLASS_TYPE); wtClasses = rc.data || []; }
+  var picked = [];
+  cls.forEach(function(c){
+    if (c.name && String(c.name).toLowerCase().indexOf('wheel')<0) return;
+    var m = wtClasses.filter(function(w){ return w.id===c.id || (c.date && w.date===c.date); })[0];
+    if (m && picked.indexOf(m)<0) picked.push(m);
+  });
+  var people = Math.max(1, Number(q.people_count)||1);
+  var r = await sbClient.from('pgl_wheel_bookings').insert([{
+    contact_first: q.first_name || '', contact_last: q.last_name || '',
+    contact_email: q.email || null, contact_phone: q.phone || null,
+    comments: q.message || null, staff_notes: q.notes || '',
+    participants: [{ first:q.first_name||'', last:q.last_name||'', phone:q.phone||'', email:q.email||'', is_contact:true }],
+    people_count: people,
+    class_ids: picked.map(function(c){ return c.id; }), class_dates: picked.map(function(c){ return c.date; }), class_count: picked.length,
+    amount_due: null, status: 'needs_info', source: 'inquiry', inquiry_id: id,
+    utm_source: q.utm_source || null, utm_campaign: q.utm_campaign || null
+  }]);
+  if (r.error){ alert('Could not move: ' + r.error.message); return; }
+  inqOpen[id] = false;
+  await inqUpdate(id, { status: 'archived', archived_at: new Date().toISOString() }, 'Moved to Wheel Throwing (needs info)');
+  if (confirm('Moved. Open the Wheel Throwing tab now?' + (people>1?'\n\n(The inquiry said '+people+' people — add their names with "Edit dates / people".)':''))){ wtStatusFilter = 'needs_info'; wtView = 'bookings'; switchTab('wheel'); }
 }
 
 // ==================== ADD RESERVATION (manual / phone / DM) ====================
