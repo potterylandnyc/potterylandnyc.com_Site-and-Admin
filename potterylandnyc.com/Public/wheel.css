@@ -8,6 +8,8 @@
 .plan-price { font-weight: 700; color: var(--color-primary); text-align: right; }
 .plan-tax, .plan-per { font-size: 12px; font-weight: 400; color: var(--color-text-muted); }
 .plan-fine { font-size: 13px; color: var(--color-text-muted); margin-bottom: 8px; }
+.group-note { font-size: 13px; color: var(--color-text-muted); background: var(--color-bg); border-radius: 8px; padding: 10px 12px; margin: 10px 0; line-height: 1.6; }
+.group-note a { color: var(--color-primary); font-weight: 600; text-decoration: underline; }
 .promo-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .promo-pill { font-size: 13px; background: #EAF6F0; color: #1E6B45; border-radius: 8px; padding: 8px 12px; }
 .addon-box { border-top: 1px solid var(--color-border); padding-top: 14px; margin-top: 6px; font-size: 14px; color: var(--color-text-muted); }
