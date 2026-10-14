@@ -327,8 +327,17 @@ function pricePerPerson(n) {
 function packageLabel(n) {
   return n + (n === 1 ? ' class' : ' classes');
 }
+// Opening-class promo dates: list in first_class_promo_dates (older single
+// first_class_promo_date still works). Only dates not yet passed count.
+function promoDates() {
+  const list = Array.isArray(cfg.first_class_promo_dates) && cfg.first_class_promo_dates.length
+    ? cfg.first_class_promo_dates : (cfg.first_class_promo_date ? [cfg.first_class_promo_date] : []);
+  const today = todayStr();
+  return list.filter(d => d >= today).sort();
+}
+function isPromoDate(d) { return firstClassPromoLive() && promoDates().includes(d); }
 function firstClassPromoLive() {
-  return !!(cfg.first_class_promo_on && cfg.first_class_promo_date && todayStr() <= cfg.first_class_promo_date);
+  return !!(cfg.first_class_promo_on && promoDates().length);
 }
 function friendPromoLive() { return !!cfg.friend_promo_on; }
 
@@ -336,7 +345,8 @@ function computeQuote(selected, people) {
   const n = selected.length;
   const per = pricePerPerson(n);
   const friendAmt = (friendPromoLive() && people >= 2) ? Number(cfg.friend_promo_amount) || 0 : 0;
-  const firstAmt = (firstClassPromoLive() && selected.some(s => s.date === cfg.first_class_promo_date)) ? Number(cfg.first_class_promo_amount) || 0 : 0;
+  const promoHit = selected.map(s => s.date).filter(isPromoDate).sort()[0] || null;
+  const firstAmt = promoHit ? Number(cfg.first_class_promo_amount) || 0 : 0;
   const perAfter = Math.max(0, per - friendAmt - firstAmt);
   const subtotal = perAfter * people;
   const rate = Number(cfg.tax_rate) || 0;
@@ -347,7 +357,7 @@ function computeQuote(selected, people) {
     price_per_person: per, full: per * people,
     friend_amount: friendAmt, friend_applied: friendAmt > 0,
     first_class_amount: firstAmt, first_class_applied: firstAmt > 0,
-    first_class_date: firstAmt > 0 ? cfg.first_class_promo_date : null,
+    first_class_date: firstAmt > 0 ? promoHit : null,
     per_person_after: perAfter,
     subtotal: subtotal, tax_rate: rate, tax: tax, total: total,
     packages: cfg.packages
@@ -363,7 +373,7 @@ function renderPlans() {
   }).join('');
   const promos = [];
   if (friendPromoLive()) promos.push('👯 <strong>Bring a friend:</strong> book together and you each get ' + money0(cfg.friend_promo_amount) + ' off.');
-  if (firstClassPromoLive()) promos.push('🎉 <strong>Opening class:</strong> join us on ' + fmtDay(cfg.first_class_promo_date, { weekday: 'long', month: 'long', day: 'numeric' }) + ' and get ' + money0(cfg.first_class_promo_amount) + ' off.');
+  if (firstClassPromoLive()) promos.push('🎉 <strong>Opening class:</strong> join us on ' + promoDates().map(d => fmtDay(d, { weekday: 'long', month: 'long', day: 'numeric' })).join(' or ') + ' and get ' + money0(cfg.first_class_promo_amount) + ' off.');
   document.getElementById('promo-list').innerHTML = promos.map(p => '<div class="promo-pill">' + p + '</div>').join('');
   document.getElementById('friend-note').innerHTML = friendPromoLive()
     ? ' <strong>Bring a friend and you each get ' + money0(cfg.friend_promo_amount) + ' off your session.</strong>' : '';
@@ -393,7 +403,7 @@ function renderDates() {
     const full = left <= 0;
     const low = !full && open <= ALMOST_FULL_AT;
     const meta = full ? 'Full' : low ? (fmtTime(s.time) + ' · Almost full') : fmtTime(s.time);
-    const promo = (firstClassPromoLive() && s.date === cfg.first_class_promo_date) ? '<span class="date-tag">' + money0(cfg.first_class_promo_amount) + ' off</span>' : '';
+    const promo = isPromoDate(s.date) ? '<span class="date-tag">' + money0(cfg.first_class_promo_amount) + ' off</span>' : '';
     return '<label class="date-opt' + (full ? ' is-full' : '') + (low ? ' is-low' : '') + '">' +
       '<input type="checkbox" name="session" value="' + s.id + '"' + (full ? ' disabled' : '') + (checked.has(s.id) ? ' checked' : '') + ' onchange="recalc()">' +
       '<span class="date-card"><span class="date-day">' + fmtDay(s.date) + '</span><span class="date-meta">' + meta + '</span>' + promo + '</span></label>';

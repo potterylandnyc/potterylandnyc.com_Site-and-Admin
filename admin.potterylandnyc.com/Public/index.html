@@ -2121,15 +2121,23 @@ function wtPricePerPerson(n){
   var tier = lower.length ? lower[lower.length-1] : pk[0];
   return Math.ceil((Number(tier.price)/tier.classes)*n - 0.0001);
 }
+// Opening-class promo dates: list in first_class_promo_dates (older single first_class_promo_date still works).
+function wtPromoDates(){
+  if (!wtCfg) return [];
+  var l = wtCfg.first_class_promo_dates;
+  if (Array.isArray(l) && l.length) return l.slice().sort();
+  return wtCfg.first_class_promo_date ? [wtCfg.first_class_promo_date] : [];
+}
 // opts.friend / opts.firstClass: true/false to force a promo on/off (staff choice), undefined = automatic.
 function wtComputeQuote(dates, people, opts){
   opts = opts || {};
   var n = dates.length, per = wtPricePerPerson(n);
   var friendAuto = !!(wtCfg && wtCfg.friend_promo_on) && people>=2;
-  var fcDate = wtCfg && wtCfg.first_class_promo_date;
-  var firstAuto = !!(wtCfg && wtCfg.first_class_promo_on && fcDate) && dates.indexOf(fcDate)>-1;
+  var pDates = wtPromoDates();
+  var fcDate = dates.filter(function(d){ return pDates.indexOf(d)>-1; }).sort()[0] || null;
+  var firstAuto = !!(wtCfg && wtCfg.first_class_promo_on && fcDate);
   var friendOn = opts.friend===undefined ? friendAuto : (opts.friend && people>=2);
-  var firstOn = opts.firstClass===undefined ? firstAuto : (opts.firstClass && !!fcDate && dates.indexOf(fcDate)>-1);
+  var firstOn = opts.firstClass===undefined ? firstAuto : (opts.firstClass && !!fcDate);
   var friendAmt = friendOn ? Number(wtCfg.friend_promo_amount)||0 : 0;
   var firstAmt = firstOn ? Number(wtCfg.first_class_promo_amount)||0 : 0;
   var perAfter = Math.max(0, per-friendAmt-firstAmt);
@@ -2211,7 +2219,7 @@ function renderWheel(){
 
   var promo = '<div class="wt-promo-bar"><span class="sc-status-label">Promos</span>' +
     '<label><input type="checkbox" '+(wtCfg.friend_promo_on?'checked':'')+' onchange="wtSetPromo(\'friend_promo_on\', this.checked)"> Bring-a-friend ('+scMoney(wtCfg.friend_promo_amount||0)+' off each)</label>' +
-    '<label><input type="checkbox" '+(wtCfg.first_class_promo_on?'checked':'')+' onchange="wtSetPromo(\'first_class_promo_on\', this.checked)"> Opening class '+(wtCfg.first_class_promo_date?wtFmtDay(wtCfg.first_class_promo_date):'')+' ('+scMoney(wtCfg.first_class_promo_amount||0)+' off)</label>' +
+    '<label><input type="checkbox" '+(wtCfg.first_class_promo_on?'checked':'')+' onchange="wtSetPromo(\'first_class_promo_on\', this.checked)"> Opening class '+wtPromoDates().map(function(d){ return wtFmtDay(d); }).join(' / ')+' ('+scMoney(wtCfg.first_class_promo_amount||0)+' off)</label>' +
     '<span class="muted" style="font-size:12px;">Changes the public page right away. Existing bookings keep their price.</span></div>';
 
   var controls = '<div class="sc-controls"><div class="sc-seg">' +
