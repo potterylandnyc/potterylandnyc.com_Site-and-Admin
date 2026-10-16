@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.16-01 -->
+<!-- v26.10.16-02 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2128,12 +2128,51 @@ async function custLinkOnConfirm(kind, rec){
       var info = custInfo(kind, rec);
       var m = custMatches(info);
       if (m.length > 1){ alert('Confirmed. More than one customer in the order app matches this phone/email. Open the booking and choose which customer it belongs to.'); return; }
-      if (m.length === 1){ custId = m[0].id; await custFillBlanks(custId, info); }
+      if (m.length === 1){
+        custId = m[0].id; await custFillBlanks(custId, info);
+        if (custDiffs(kind, rec, m[0]).length) alert('Linked to '+m[0].first_name+' '+m[0].last_name+'. Their order-app profile has a different email or phone than this booking. Open the booking to choose which to keep.');
+      }
       else custId = await custCreate(info);
       await custSetMatched(kind, rec.id, custId);
     }
     await custAddPeople(kind, rec, custId);
   } catch(e){ alert('Confirmed, but linking to the order-app customer failed: ' + (e.message||e) + '\nYou can link it from the booking.'); }
+}
+// Booking contact vs linked profile: if email or phone differ (both filled in), the admin decides —
+// copy the booking's value to the profile, or keep the profile (remembered in contact_diff_reviewed).
+function custDiffs(kind, rec, c){
+  if (!c || rec.contact_diff_reviewed) return [];
+  var info = custInfo(kind, rec), out = [];
+  var be = String(info.email||'').trim(), pe = String(c.email||'').trim();
+  if (be && pe && be.toLowerCase() !== pe.toLowerCase()) out.push({ field:'email', label:'email', booking:be, profile:pe });
+  var bp = scNormPhone(info.phone), pp = scNormPhone(c.phone);
+  if (bp.length>=7 && pp.length>=7 && bp !== pp) out.push({ field:'phone', label:'phone', booking:info.phone, profile:c.phone });
+  return out;
+}
+function custDiffBox(kind, rec, c){
+  var d = custDiffs(kind, rec, c);
+  if (!d.length) return '';
+  return '<div class="sc-match" style="background:#FFF6DB;border-color:#E8D48A;color:#6B5200;">' +
+    d.map(function(x){ return '&#9888;&#65039; Booking '+x.label+' <strong>'+scEsc(x.booking)+'</strong> &ne; profile '+x.label+' <strong>'+scEsc(x.profile)+'</strong>' +
+      ' <button class="btn btn-ghost btn-sm" onclick="custUseBookingValue(\''+kind+'\',\''+rec.id+'\',\''+x.field+'\')">Use booking '+x.label+' on profile</button>'; }).join('<br>') +
+    '<div style="margin-top:6px;"><button class="btn btn-ghost btn-sm" onclick="custKeepProfile(\''+kind+'\',\''+rec.id+'\')">Keep profile as is</button></div></div>';
+}
+async function custUseBookingValue(kind, id, field){
+  var rec = kind==='wheel' ? wtFind(id) : signupsData.find(function(x){ return x.id===id; });
+  if (!rec || !rec.matched_customer_id) return;
+  var info = custInfo(kind, rec), upd = {};
+  upd[field] = field==='email' ? info.email : info.phone;
+  if (!confirm('Change the customer\'s '+field+' in the order app to '+upd[field]+'?')) return;
+  var r = await sbClient.from('customers').update(upd).eq('id', rec.matched_customer_id);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  var c = (customersCache||[]).find(function(x){ return x.id===rec.matched_customer_id; });
+  if (c) c[field] = upd[field];
+  if (kind==='wheel') await loadWheel(); else await loadSignups();
+}
+async function custKeepProfile(kind, id){
+  var r = await sbClient.from(custTable(kind)).update({ contact_diff_reviewed:true }).eq('id', id);
+  if (r.error){ alert('Error: '+r.error.message); return; }
+  if (kind==='wheel') await loadWheel(); else await loadSignups();
 }
 // Manual actions from the link box in a booking.
 async function custLinkManual(kind, id, custId){
@@ -2154,7 +2193,7 @@ async function custCreateManual(kind, id){
 function custLinkBox(kind, rec){
   if (rec.matched_customer_id){
     var c = (customersCache||[]).find(function(x){ return x.id===rec.matched_customer_id; });
-    return '<div class="sc-match linked">&#10003; Linked to '+(c ? scEsc(c.first_name)+' '+scEsc(c.last_name) : 'an existing customer')+' in the order app.</div>';
+    return '<div class="sc-match linked">&#10003; Linked to '+(c ? scEsc(c.first_name)+' '+scEsc(c.last_name) : 'an existing customer')+' in the order app.</div>' + custDiffBox(kind, rec, c);
   }
   var m = custMatches(custInfo(kind, rec));
   var html = m.map(function(c){
