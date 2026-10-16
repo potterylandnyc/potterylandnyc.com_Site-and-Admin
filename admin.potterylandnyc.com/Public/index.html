@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v26.10.16-01 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1929,12 +1930,7 @@ function renderRegCard(s){
     return '<div class="sc-ledger-row"><span>'+new Date(p.paid_on||p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+scMethodLabel(p.method)+(p.note?' · '+scEsc(p.note):'')+'</span><span>'+scMoney(p.amount)+'</span></div>';
   }).join('') || '<div style="font-size:12px;color:var(--muted);padding:4px 0;">No payments recorded.</div>';
 
-  var matchHtml = '';
-  if (s.matched_customer_id){ matchHtml = '<div class="sc-match linked">&#10003; Linked to an existing customer.</div>'; }
-  else if (match){
-    matchHtml = '<div class="sc-match">Possible existing customer: <strong>'+scEsc(match.first_name)+' '+scEsc(match.last_name)+'</strong> ('+scEsc(match.email||match.phone||'')+'). ' +
-      '<button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="scLinkCustomer(\''+s.id+'\',\''+match.id+'\')">Link to this customer</button></div>';
-  }
+  var matchHtml = custLinkBox('club', s);
 
   var detail = '<div class="sc-detail"><div class="sc-detail-grid">' +
     '<div>' +
@@ -2031,7 +2027,11 @@ async function scOverride(id){
 async function scSetStatus(id,status){
   var r = await sbClient.from('pgl_signups').update({ status:status, updated_at:new Date().toISOString() }).eq('id',id);
   if (r.error){ alert('Error: '+r.error.message); return; }
-  if (status === 'confirmed'){ await scNotify({ signup_id:id, type:'confirmed' }); }
+  if (status === 'confirmed'){
+    await scNotify({ signup_id:id, type:'confirmed' });
+    var s = signupsData.find(function(x){ return x.id===id; });
+    if (s) await custLinkOnConfirm('club', Object.assign({}, s, { status:status }));
+  }
   await loadSignups();
 }
 async function scDelete(id){
@@ -2051,6 +2051,120 @@ async function scLinkCustomer(id, custId){
   await loadSignups();
 }
 
+
+// ==================== ORDER-APP CUSTOMER LINK (on confirm) ====================
+// A confirmed wheel booking / Sunday Club signup points at exactly one customer in the order app
+// (matched_customer_id). On confirm: one phone/email match -> link (fill a blank email only, never
+// overwrite); no match -> create the customer; several -> don't guess, admin picks in the booking.
+// Participants / children are added to that customer's People (order app table customer_people).
+function custInfo(kind, rec){
+  if (kind==='wheel') return { first:rec.contact_first||'', last:rec.contact_last||'', phone:rec.contact_phone||'', email:rec.contact_email||'', notify:rec.contact_notify||'SMS', branch:rec.branch_id||'fb' };
+  return { first:rec.parent_first||'', last:rec.parent_last||'', phone:rec.parent_phone||'', email:rec.parent_email||'', notify:rec.parent_notify||'SMS', branch:rec.branch_id||'fb' };
+}
+function custMatches(info){
+  var em = String(info.email||'').toLowerCase().trim();
+  var ph = scNormPhone(info.phone);
+  return (customersCache||[]).filter(function(c){
+    return (em && String(c.email||'').toLowerCase().trim()===em) || (ph.length>=7 && scNormPhone(c.phone)===ph);
+  });
+}
+function custInitials(name){ return String(name||'').trim().split(/\s+/).filter(Boolean).map(function(w){ return w[0]; }).join('').slice(0,4).toUpperCase(); }
+function custTable(kind){ return kind==='wheel' ? 'pgl_wheel_bookings' : 'pgl_signups'; }
+async function custSetMatched(kind, id, custId){
+  var upd = { matched_customer_id: custId };
+  if (kind==='club') upd.updated_at = new Date().toISOString();
+  var r = await sbClient.from(custTable(kind)).update(upd).eq('id', id);
+  if (r.error) throw r.error;
+}
+async function custCreate(info){
+  var row = { id: 'C' + Date.now() + Math.random().toString(36).slice(2,6),
+    first_name: info.first || '(no first name)', last_name: info.last || '(no last name)',
+    phone: info.phone || '', email: info.email || '', notify: info.notify || 'SMS',
+    pickup_pref: String(info.branch||'').toLowerCase()==='ch' ? 'CH' : 'fb',
+    created_by: authUser ? authUser.email : '' };
+  var r = await sbClient.from('customers').insert([row]);
+  if (r.error) throw r.error;
+  (customersCache = customersCache || []).push({ id:row.id, first_name:row.first_name, last_name:row.last_name, phone:row.phone, email:row.email });
+  return row.id;
+}
+async function custFillBlanks(custId, info){
+  var c = (customersCache||[]).find(function(x){ return x.id===custId; });
+  if (c && !c.email && info.email){
+    var r = await sbClient.from('customers').update({ email: info.email }).eq('id', custId);
+    if (!r.error) c.email = info.email;
+  }
+}
+// Adds participants (wheel) or children (club) to the customer's People; skips names already there.
+async function custAddPeople(kind, rec, custId){
+  var people = [], group, source;
+  if (kind==='wheel'){
+    var d = (rec.class_dates||[]).slice().sort()[0];
+    group = 'Wheel class' + (d ? ' ' + new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '');
+    source = 'wheel_booking';
+    (Array.isArray(rec.participants)?rec.participants:[]).forEach(function(p){
+      if (p.is_contact) return;
+      var name = ((p.first||'')+' '+(p.last||'')).trim();
+      if (name) people.push({ name:name, initials:custInitials(name), birth_date:null });
+    });
+  } else {
+    group = 'Family'; source = 'sunday_club';
+    (Array.isArray(rec.children)?rec.children:[]).forEach(function(k){
+      if (k && k.name) people.push({ name:String(k.name).trim(), initials:custInitials(k.name), birth_date:k.dob||null });
+    });
+  }
+  if (!people.length) return;
+  var ex = await sbClient.from('customer_people').select('name').eq('customer_id', custId);
+  var have = {}; (ex.data||[]).forEach(function(p){ if (p.name) have[String(p.name).toLowerCase()] = true; });
+  var rows = people.filter(function(p){ return !have[p.name.toLowerCase()]; }).map(function(p){
+    return { customer_id:custId, name:p.name, initials:p.initials||null, group_label:group, birth_date:p.birth_date, source:source };
+  });
+  if (rows.length){ var r = await sbClient.from('customer_people').insert(rows); if (r.error) console.warn('Could not add people', r.error); }
+}
+async function custLinkOnConfirm(kind, rec){
+  try {
+    if (!customersCache){ var rc = await sbClient.from('customers').select('id,first_name,last_name,phone,email'); customersCache = rc.data || []; }
+    var custId = rec.matched_customer_id;
+    if (!custId){
+      var info = custInfo(kind, rec);
+      var m = custMatches(info);
+      if (m.length > 1){ alert('Confirmed. More than one customer in the order app matches this phone/email. Open the booking and choose which customer it belongs to.'); return; }
+      if (m.length === 1){ custId = m[0].id; await custFillBlanks(custId, info); }
+      else custId = await custCreate(info);
+      await custSetMatched(kind, rec.id, custId);
+    }
+    await custAddPeople(kind, rec, custId);
+  } catch(e){ alert('Confirmed, but linking to the order-app customer failed: ' + (e.message||e) + '\nYou can link it from the booking.'); }
+}
+// Manual actions from the link box in a booking.
+async function custLinkManual(kind, id, custId){
+  var rec = kind==='wheel' ? wtFind(id) : signupsData.find(function(x){ return x.id===id; });
+  if (!rec) return;
+  try { await custSetMatched(kind, id, custId); await custFillBlanks(custId, custInfo(kind, rec)); await custAddPeople(kind, rec, custId); }
+  catch(e){ alert('Error: ' + (e.message||e)); return; }
+  if (kind==='wheel') await loadWheel(); else await loadSignups();
+}
+async function custCreateManual(kind, id){
+  var rec = kind==='wheel' ? wtFind(id) : signupsData.find(function(x){ return x.id===id; });
+  if (!rec || !confirm('Create a new customer in the order app from this contact?')) return;
+  try { var custId = await custCreate(custInfo(kind, rec)); await custSetMatched(kind, id, custId); await custAddPeople(kind, rec, custId); }
+  catch(e){ alert('Error: ' + (e.message||e)); return; }
+  if (kind==='wheel') await loadWheel(); else await loadSignups();
+}
+// The box shown in a booking: linked customer, or possible matches + "Create new" (confirmed only).
+function custLinkBox(kind, rec){
+  if (rec.matched_customer_id){
+    var c = (customersCache||[]).find(function(x){ return x.id===rec.matched_customer_id; });
+    return '<div class="sc-match linked">&#10003; Linked to '+(c ? scEsc(c.first_name)+' '+scEsc(c.last_name) : 'an existing customer')+' in the order app.</div>';
+  }
+  var m = custMatches(custInfo(kind, rec));
+  var html = m.map(function(c){
+    return '<div style="margin-top:6px;">'+scEsc(c.first_name)+' '+scEsc(c.last_name)+' <span class="muted">('+scEsc(c.phone||c.email||'')+')</span> ' +
+      '<button class="btn btn-ghost btn-sm" onclick="custLinkManual(\''+kind+'\',\''+rec.id+'\',\''+c.id+'\')">Link</button></div>';
+  }).join('');
+  var create = rec.status==='confirmed' ? '<button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="custCreateManual(\''+kind+'\',\''+rec.id+'\')">+ Create new customer</button>' : '';
+  if (!html && !create) return '';
+  return '<div class="sc-match">'+(m.length ? (m.length>1 ? 'Several customers match — choose one:' : 'Possible existing customer:') : 'Not linked to an order-app customer yet.')+html+(create?'<div>'+create+'</div>':'')+'</div>';
+}
 
 // ==================== WHEEL THROWING ====================
 // Bookings live in pgl_wheel_bookings (+ pgl_wheel_payments). Dates are the
@@ -2289,6 +2403,7 @@ function wtCard(b){
 
   var detail = '<div class="sc-detail" style="display:block;"><div class="sc-detail-grid"><div>' +
       '<div class="sc-sub">Contact</div><div style="font-size:13px;line-height:1.7;">'+scEsc(b.contact_phone||'—')+'<br>'+scEsc(b.contact_email||'—')+'<br>Prefers: <strong>'+scEsc(b.contact_notify||'Email')+'</strong></div>' +
+      custLinkBox('wheel', b) +
       (b.comments?'<div class="sc-sub" style="margin-top:10px;">Comments</div><div style="font-size:13px;white-space:pre-wrap;">'+scEsc(b.comments)+'</div>':'') +
       '<div class="sc-sub" style="margin-top:16px;">People</div>'+peopleHtml +
     '</div><div>' +
@@ -2360,7 +2475,10 @@ async function wtSetStatus(id, status, sel){
   }
   var r = await sbClient.from('pgl_wheel_bookings').update({ status:status }).eq('id', id);
   if (r.error){ alert('Error: '+r.error.message); return; }
-  if (status==='confirmed') await wtNotify({ booking_id:id, type:'confirmed' });
+  if (status==='confirmed'){
+    await wtNotify({ booking_id:id, type:'confirmed' });
+    await custLinkOnConfirm('wheel', Object.assign({}, b, { status:status }));
+  }
   await loadWheel();
 }
 async function wtAddPayment(id){
@@ -2529,6 +2647,7 @@ async function wtSaveModal(){
   }
   if (r.error) return wtModalError('Error: '+r.error.message);
   if (sendConfirm) await wtNotify({ booking_id:payload.id, type:'confirmed' });
+  if (!b) await custLinkOnConfirm('wheel', payload);
   wtCloseModal();
   await loadWheel();
 }
@@ -2957,6 +3076,7 @@ async function scSubmitAddReservation(){
     if (r.error) throw r.error;
     if (completing) signupLevel = 'reservations';
     await scNotify({ signup_id: r.data.id, type: 'confirmed' });
+    await custLinkOnConfirm('club', Object.assign({}, payload, { id: r.data.id }));
     scCloseAddModal();
     await loadSignups();
     alert((completing ? 'Reservation completed' : 'Reservation added') + (r.data.ref_code ? ' — ref ' + r.data.ref_code : '') + '. Confirmation email sent to the parent.');
