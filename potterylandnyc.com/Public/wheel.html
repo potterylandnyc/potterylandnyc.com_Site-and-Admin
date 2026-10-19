@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v26.10.19-01 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -238,8 +239,10 @@ const NOTIFY_FUNCTION = SUPABASE_URL + '/functions/v1/notify-wheel';
 const DATES_SHOWN_FIRST = 8;
 const ALMOST_FULL_AT = 3; // show "Almost full" when this many seats or fewer are open (confirmed + pending)
 
-// Used only if the settings row can't be loaded. Real values live in
-// settings key 'website_wheel_adult' (editable without a code change).
+// Used only if the settings row can't be loaded. Promo switches/dates and tax live in settings key
+// 'website_wheel_adult'. Packages, paint add-on price and the bring-a-friend amount come from the
+// class type (table class_types, slug CLASS_SLUG) — the same prices the order app and admin use.
+const CLASS_SLUG = 'adult-wheel';
 const FALLBACK_CFG = {
   class_type: 'Adult Wheel Throwing',
   packages: [{ classes: 1, price: 85 }, { classes: 3, price: 235 }, { classes: 5, price: 370 }],
@@ -292,12 +295,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   captureUTM();
   try {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const [{ data: setRow }, { data: cls }] = await Promise.all([
+    const [{ data: setRow }, { data: ct }] = await Promise.all([
       sb.from('settings').select('value').eq('key', 'website_wheel_adult').maybeSingle(),
-      sb.from('pgl_classes').select('id,date,time,duration,total_spots,spots_remaining,spots_pending,branch_id')
-        .eq('name', FALLBACK_CFG.class_type).eq('active', true).gte('date', todayStr()).order('date').order('time')
+      sb.from('class_types').select('id,packages,paint_first_price,friend_discount').eq('slug', CLASS_SLUG).maybeSingle()
     ]);
     if (setRow && setRow.value) cfg = Object.assign({}, FALLBACK_CFG, setRow.value);
+    if (ct) {
+      if (Array.isArray(ct.packages) && ct.packages.length) cfg.packages = ct.packages;
+      if (ct.paint_first_price != null) cfg.paint_addon_price = Number(ct.paint_first_price);
+      if (ct.friend_discount != null) cfg.friend_promo_amount = Number(ct.friend_discount);
+    }
+    let q = sb.from('pgl_classes').select('id,date,time,duration,total_spots,spots_remaining,spots_pending,branch_id');
+    q = ct ? q.eq('class_type_id', ct.id) : q.eq('name', FALLBACK_CFG.class_type);
+    const { data: cls } = await q.eq('active', true).gte('date', todayStr()).order('date').order('time');
     sessions = cls || [];
   } catch (e) { /* keep fallback */ }
   renderPlans();

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-02 -->
+<!-- v26.10.19-03 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -505,39 +505,11 @@ tr:hover td { background: var(--bg); }
     <!-- PRICING -->
     <div class="tab-panel" id="tab-pricing">
       <div id="alert-pricing" class="alert"></div>
-      <div class="info-box">Set price tiers per class type. The tier covering the total number of classes booked determines the per-class price. Example: 4 classes uses the "3 classes" tier price x 4.</div>
-      <div id="pricing-tables"></div>
-      <div class="card">
-        <div class="card-title">Add Price Tier</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Class Type *</label>
-            <select id="p-class-type">
-              <option value="Adult Wheel Throwing">Adult Wheel Throwing</option>
-              <option value="Adult Hand Building">Adult Hand Building</option>
-              <option value="Kids Wheel Throwing">Kids Wheel Throwing</option>
-              <option value="Kids Hand Building">Kids Hand Building</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Firing Option *</label>
-            <select id="p-firing">
-              <option value="1">1 Firing</option>
-              <option value="2">2 Firings</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Min Classes (tier starts at)</label>
-            <input type="number" id="p-min" min="1" value="1">
-          </div>
-          <div class="form-group">
-            <label>Price Per Class ($)</label>
-            <input type="number" id="p-price" min="0" step="0.01" placeholder="e.g. 90.00">
-          </div>
-        </div>
-        <div style="margin-top:14px;">
-          <button class="btn btn-primary" onclick="savePricingTier()">Add Tier</button>
-        </div>
+      <div class="info-box">Class types and prices — the same list as the order app (Settings → Classes); a change in either place shows in both. Packages: a count between packages uses the per-class rate of the package below (e.g. 4 classes with 1 / 3 packages = the 3-class rate × 4). Turn a class off instead of deleting it.</div>
+      <div id="ct-editor"></div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" onclick="ctAdminAdd()">+ Add class type</button>
+        <button class="btn btn-primary" onclick="ctAdminSave(this)">Save class types</button>
       </div>
     </div>
 
@@ -837,6 +809,78 @@ async function loadAdminClassTypes() {
   adminClassTypes = r.data || [];
   adminAgeGroups = (g.data && Array.isArray(g.data.value)) ? g.data.value : [];
   fillClassTypeSelects();
+  ctAdminDraft = adminClassTypes.map(function(t){ return Object.assign({}, t, { packages: (t.packages||[]).map(function(p){ return Object.assign({}, p); }) }); });
+  ctAdminRender();
+}
+
+// ── Pricing tab: class types editor (same table + rules as the order app's Settings → Classes) ──
+var ctAdminDraft = [];
+function ctAdminMoney(v){ return (v===null || v===undefined || v==='') ? '' : v; }
+function ctAdminRender(){
+  var el = document.getElementById('ct-editor'); if (!el) return;
+  if (!ctAdminDraft.length){ el.innerHTML = '<div class="card"><p style="color:var(--muted);font-size:13px;">No class types yet.</p></div>'; return; }
+  var groups = adminAgeGroups.map(function(g){ return g.label; });
+  el.innerHTML = ctAdminDraft.map(function(c, i){
+    var opts = groups.slice(); if (c.age_group && opts.indexOf(c.age_group) < 0) opts.push(c.age_group);
+    var shown = ctDisplay(c) || 'New class';
+    var pk = (c.packages||[]).map(function(p, j){
+      return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">' +
+        '<input type="number" min="1" step="1" placeholder="Classes" value="'+(p.classes==null?'':p.classes)+'" oninput="ctAdminDraft['+i+'].packages['+j+'].classes=this.value">' +
+        '<input type="number" min="0" step="0.01" placeholder="Price $" value="'+(p.price==null?'':p.price)+'" oninput="ctAdminDraft['+i+'].packages['+j+'].price=this.value">' +
+        '<button class="btn btn-danger btn-sm" onclick="ctAdminDraft['+i+'].packages.splice('+j+',1);ctAdminRender()">x</button></div>';
+    }).join('');
+    return '<div class="card"'+(c.active===false?' style="opacity:.6;"':'')+'>' +
+      '<div class="card-title">'+scEsc(shown)+(c.active===false?' · off':'')+'</div>' +
+      '<div class="form-grid">' +
+        '<div class="form-group"><label>Class *</label><input type="text" placeholder="e.g. Wheel Throwing" value="'+scEsc(c.name||'')+'" oninput="ctAdminDraft['+i+'].name=this.value"></div>' +
+        '<div class="form-group"><label>Age group *</label><select onchange="ctAdminDraft['+i+'].age_group=this.value;ctAdminRender()"><option value="">Choose…</option>' +
+          opts.map(function(o){ return '<option'+(o===c.age_group?' selected':'')+'>'+scEsc(o)+'</option>'; }).join('') + '</select></div>' +
+        '<div class="form-group"><label>Public title (optional)</label><input type="text" placeholder="'+scEsc(shown)+'" value="'+scEsc(c.public_title||'')+'" oninput="ctAdminDraft['+i+'].public_title=this.value"></div>' +
+        '<div class="form-group"><label>Web name (link)</label><input type="text" placeholder="e.g. kids-wheel" value="'+scEsc(c.slug||'')+'" oninput="ctAdminDraft['+i+'].slug=this.value"></div>' +
+        '<div class="form-group"><label>Bring-a-friend ($ off each)</label><input type="number" min="0" step="0.01" value="'+ctAdminMoney(c.friend_discount)+'" oninput="ctAdminDraft['+i+'].friend_discount=this.value"></div>' +
+        '<div class="form-group"><label>Pieces included</label><input type="number" min="0" step="1" value="'+(c.pieces_included==null?2:c.pieces_included)+'" oninput="ctAdminDraft['+i+'].pieces_included=this.value"></div>' +
+        '<div class="form-group"><label>Paint + 2nd firing: 1st piece ($)</label><input type="number" min="0" step="0.01" value="'+ctAdminMoney(c.paint_first_price)+'" oninput="ctAdminDraft['+i+'].paint_first_price=this.value"></div>' +
+        '<div class="form-group"><label>Each additional ($)</label><input type="number" min="0" step="0.01" value="'+ctAdminMoney(c.paint_additional_price)+'" oninput="ctAdminDraft['+i+'].paint_additional_price=this.value"></div>' +
+      '</div>' +
+      '<div style="margin-top:12px;"><label style="font-size:13px;font-weight:600;">Packages (classes → price)</label><div style="margin-top:6px;">'+pk+'</div>' +
+        '<button class="btn btn-ghost btn-sm" onclick="ctAdminDraft['+i+'].packages.push({classes:\'\',price:\'\'});ctAdminRender()">+ Add package</button></div>' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:12px;"><input type="checkbox" style="width:auto;" '+(c.active!==false?'checked':'')+' onchange="ctAdminDraft['+i+'].active=this.checked;ctAdminRender()"> Active</label>' +
+    '</div>';
+  }).join('');
+}
+function ctAdminAdd(){
+  ctAdminDraft.push({ name:'', age_group:'', public_title:'', slug:'', packages:[], friend_discount:0, pieces_included:2, paint_first_price:'', paint_additional_price:'', active:true });
+  ctAdminRender();
+}
+async function ctAdminSave(btn){
+  function num(v){ return (v===''||v===null||v===undefined||isNaN(parseFloat(v))) ? null : parseFloat(v); }
+  var labels = adminAgeGroups.map(function(g){ return g.label; });
+  var rows = ctAdminDraft.map(function(c, i){
+    return { id:c.id, name:String(c.name||'').trim(), age_group:String(c.age_group||'').trim(),
+      public_title:String(c.public_title||'').trim() || null,
+      slug:String(c.slug||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || null,
+      packages:(c.packages||[]).map(function(p){ return { classes:parseInt(p.classes,10), price:num(p.price) }; }).filter(function(p){ return p.classes>0 && p.price!==null; }).sort(function(x,y){ return x.classes-y.classes; }),
+      friend_discount:num(c.friend_discount)||0, pieces_included:Math.max(0, parseInt(c.pieces_included,10)||0),
+      paint_first_price:num(c.paint_first_price), paint_additional_price:num(c.paint_additional_price),
+      active:c.active!==false, sort_order:i+1, updated_at:new Date().toISOString() };
+  });
+  if (rows.some(function(r){ return !r.name || !r.age_group; })){ showAlert('alert-pricing','Each class type needs a class name and an age group.', false); return; }
+  if (rows.some(function(r){ return labels.indexOf(r.age_group) < 0; })){ showAlert('alert-pricing','A class type uses an age group that doesn\'t exist (age groups are set in the order app → Settings → Classes).', false); return; }
+  if (rows.some(function(r, i){ return r.packages.length !== (ctAdminDraft[i].packages||[]).length; })){ showAlert('alert-pricing','Each package needs a number of classes and a price (or remove it).', false); return; }
+  if (rows.some(function(r){ var s = r.packages.map(function(p){ return p.classes; }); return s.some(function(v, k){ return s.indexOf(v) !== k; }); })){ showAlert('alert-pricing','A class type has two packages with the same number of classes.', false); return; }
+  var keys = rows.map(function(r){ return (r.name+'|'+r.age_group).toLowerCase(); });
+  if (keys.some(function(k, i){ return keys.indexOf(k) !== i; })){ showAlert('alert-pricing','Two class types have the same class and age group.', false); return; }
+  var slugs = rows.map(function(r){ return r.slug; }).filter(Boolean);
+  if (slugs.some(function(k, i){ return slugs.indexOf(k) !== i; })){ showAlert('alert-pricing','Two class types have the same web name.', false); return; }
+  btn.disabled = true;
+  for (var i = 0; i < rows.length; i++){
+    var r = rows[i], id = r.id; delete r.id;
+    var res = id ? await sbClient.from('class_types').update(r).eq('id', id) : await sbClient.from('class_types').insert([r]);
+    if (res.error){ btn.disabled = false; showAlert('alert-pricing', 'Error: ' + res.error.message, false); return; }
+  }
+  btn.disabled = false;
+  showAlert('alert-pricing', 'Saved!', true);
+  await loadAdminClassTypes();
 }
 function ctAgeGroup(t) { return adminAgeGroups.find(function(x){ return x.label === t.age_group; }) || null; }
 function ctDisplay(t) { var g = ctAgeGroup(t); return ((g ? (g.prefix || g.label) : (t.age_group || '')) + ' ' + (t.name || '')).trim(); }
@@ -1063,6 +1107,7 @@ function loadDiscounts() {
 
 // --- PRICING ---
 function loadPricing() {
+  return; // old pgl_pricing editor retired 2026-10-19 — Pricing tab now edits class_types (ctAdmin* below)
   if (!sbClient) return;
   sbClient.from('pgl_pricing').select('*').order('class_type').order('firing_option').order('min_classes').then(function(res) {
     allPricing = res.data || [];
@@ -2247,7 +2292,15 @@ function custLinkBox(kind, rec){
 // 'website_wheel_adult' row in settings — the same row wheel.html reads, so the
 // math below must stay in step with wheel.html's computeQuote().
 var WT_CLASS_TYPE = 'Adult Wheel Throwing';
-var WT_SETTINGS_KEY = 'website_wheel_adult';
+var WT_SETTINGS_KEY = 'website_wheel_adult';
+var WT_CLASS_SLUG = 'adult-wheel';   // class_types row: packages, paint price, friend amount (promo switches stay in WT_SETTINGS_KEY)
+var wtClassType = null;
+function wtApplyClassType(){
+  if (!wtClassType || !wtCfg) return;
+  if (Array.isArray(wtClassType.packages) && wtClassType.packages.length) wtCfg.packages = wtClassType.packages;
+  if (wtClassType.paint_first_price != null) wtCfg.paint_addon_price = Number(wtClassType.paint_first_price);
+  if (wtClassType.friend_discount != null) wtCfg.friend_promo_amount = Number(wtClassType.friend_discount);
+}
 var wtData = [];
 var wtPayments = {};
 var wtClasses = [];          // all pgl_classes rows for this class type (incl. past), by date
@@ -2346,10 +2399,12 @@ function wtOwed(b){ return Number(b.amount_due)||0; }
 async function loadWheel(){
   if (!sbClient) return;
   var body = document.getElementById('wheel-body');
+  var rct = await sbClient.from('class_types').select('*').eq('slug', WT_CLASS_SLUG).maybeSingle();
+  wtClassType = rct.data || null;
   var r = await Promise.all([
     sbClient.from('pgl_wheel_bookings').select('*').order('created_at',{ascending:false}),
     sbClient.from('pgl_wheel_payments').select('*').order('created_at'),
-    sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('name', WT_CLASS_TYPE).order('date').order('time'),
+    (wtClassType ? sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('class_type_id', wtClassType.id) : sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('name', WT_CLASS_TYPE)).order('date').order('time'),
     sbClient.from('settings').select('value').eq('key', WT_SETTINGS_KEY).maybeSingle()
   ]);
   if (r[0].error){ body.innerHTML = '<div class="empty"><p>Could not load wheel bookings: '+scEsc(r[0].error.message)+'</p></div>'; return; }
@@ -2357,7 +2412,8 @@ async function loadWheel(){
   wtPayments = {};
   (r[1].data||[]).forEach(function(p){ (wtPayments[p.booking_id]=wtPayments[p.booking_id]||[]).push(p); });
   wtClasses = r[2].data || [];
-  wtCfg = (r[3].data && r[3].data.value) || { packages:[{classes:1,price:85},{classes:3,price:235},{classes:5,price:370}], tax_rate:0.08875, paint_addon_price:25 };
+  wtCfg = (r[3].data && r[3].data.value) || { packages:[{classes:1,price:85},{classes:3,price:235},{classes:5,price:370}], tax_rate:0.08875, paint_addon_price:25 };
+  wtApplyClassType();
   if (!customersCache){ var rc = await sbClient.from('customers').select('id,first_name,last_name,phone,email'); customersCache = rc.data || []; }
   renderWheel();
 }
@@ -2612,7 +2668,7 @@ async function wtSetPromo(key, on){
   val[key] = on;
   var r = await sbClient.from('settings').update({ value: val }).eq('key', WT_SETTINGS_KEY);
   if (r.error){ alert('Error: '+r.error.message); return; }
-  wtCfg = val; renderWheel();
+  wtCfg = val; wtApplyClassType(); renderWheel();
 }
 
 // ---- Add / edit modal ----
@@ -2745,7 +2801,7 @@ async function inqMoveToWheel(id){
   if (ex.data && ex.data.length){ alert('This inquiry was already moved to Wheel Throwing.'); return; }
   // Carry over any dates picked in the homepage cart (matched by class id, or by date).
   var cls = Array.isArray(q.classes) ? q.classes : [];
-  if (!wtClasses.length){ var rc = await sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('name', WT_CLASS_TYPE); wtClasses = rc.data || []; }
+  if (!wtClasses.length){ var rc = await (wtClassType ? sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('class_type_id', wtClassType.id) : sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('name', WT_CLASS_TYPE)); wtClasses = rc.data || []; }
   var picked = [];
   cls.forEach(function(c){
     if (c.name && String(c.name).toLowerCase().indexOf('wheel')<0) return;
