@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.16-02 -->
+<!-- v26.10.19-01 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2455,8 +2455,9 @@ function wtCard(b){
         '<select id="wt-pay-method-'+b.id+'"><option value="zelle">Electronic — Zelle</option><option value="venmo">Electronic — Venmo</option><option value="cashapp">Electronic — CashApp</option><option value="paypal">Electronic — PayPal</option><option value="electronic_other">Electronic — Other</option><option value="credit_card">Credit card</option><option value="other">Other</option></select></div>' +
       '<input type="text" placeholder="Note (optional)" id="wt-pay-note-'+b.id+'" style="margin-top:8px;">' +
       '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="wtAddPayment(\''+b.id+'\')">Record payment</button>' +
-      '<div class="sc-sub" style="margin-top:16px;">Override amount due</div>' +
-      '<div class="sc-inline"><input type="number" step="0.01" placeholder="New amount due" id="wt-ovr-amt-'+b.id+'"><input type="text" placeholder="Reason" id="wt-ovr-note-'+b.id+'"></div>' +
+      '<div class="sc-sub" style="margin-top:16px;">Override price</div>' +
+      '<div class="sc-inline"><input type="number" step="0.01" placeholder="New price (before tax)" id="wt-ovr-amt-'+b.id+'"><input type="text" placeholder="Reason" id="wt-ovr-note-'+b.id+'"></div>' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:6px;"><input type="checkbox" id="wt-ovr-notax-'+b.id+'" style="width:auto;"> No tax</label>' +
       '<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="wtOverride(\''+b.id+'\')">Save override</button>' +
     '</div></div>' +
     '<div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:14px;">' +
@@ -2528,10 +2529,19 @@ async function wtAddPayment(id){
   await wtNotify({ booking_id:id, type:'payment', payment_amount:amt });
   await loadWheel();
 }
+// Override: staff enter the price BEFORE tax; tax is added (booking's quote rate, else the wheel settings
+// rate) unless "No tax" is ticked. amount_due always includes tax, like a normal booking's quote total.
 async function wtOverride(id){
   var amt = parseFloat(document.getElementById('wt-ovr-amt-'+id).value);
-  if (isNaN(amt)){ alert('Enter a new amount due.'); return; }
-  var r = await sbClient.from('pgl_wheel_bookings').update({ amount_due:amt, amount_due_is_override:true, override_note:document.getElementById('wt-ovr-note-'+id).value }).eq('id', id);
+  if (isNaN(amt) || amt < 0){ alert('Enter the new price (before tax).'); return; }
+  var b = (wtData||[]).find(function(x){ return x.id===id; }) || {};
+  var noTax = document.getElementById('wt-ovr-notax-'+id).checked;
+  var rate = noTax ? 0 : (Number((b.quote && b.quote.tax_rate!=null) ? b.quote.tax_rate : (wtCfg && wtCfg.tax_rate))||0);
+  var tax = Math.round(amt*rate*100)/100;
+  var due = Math.round((amt+tax)*100)/100;
+  var reason = document.getElementById('wt-ovr-note-'+id).value.trim();
+  var note = (reason ? reason+' · ' : '') + scMoney(amt) + (noTax ? ' (no tax)' : ' + ' + scMoney(tax) + ' tax');
+  var r = await sbClient.from('pgl_wheel_bookings').update({ amount_due:due, amount_due_is_override:true, override_note:note }).eq('id', id);
   if (r.error){ alert('Error: '+r.error.message); return; }
   await loadWheel();
 }
