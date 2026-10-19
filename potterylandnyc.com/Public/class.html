@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-02 — one booking page for every class: /classes/<slug> (see _redirects) -->
+<!-- v26.10.19-03 — one booking page for every class: /classes/<slug> (see _redirects) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -121,7 +121,7 @@
 
         <!-- PEOPLE -->
         <div class="card">
-          <h2>Who's coming?</h2>
+          <h2 id="people-title">Who's coming?</h2>
           <p class="card-sub"><span id="people-sub">Bringing someone? Add them here.</span><span id="friend-note"></span></p>
           <div id="people-list"></div>
           <button type="button" class="add-row-btn" id="add-person-btn" onclick="openPersonModal()">+ Add another person</button>
@@ -282,7 +282,9 @@ function applyClassText(title, g) {
   document.title = title + ' — Pottery & Glass Land';
   const md = document.querySelector('meta[name="description"]'); if (md) md.setAttribute('content', (classType.description || title).slice(0, 160));
   document.getElementById('hero-title').textContent = title;
-  document.getElementById('hero-eyebrow').textContent = g ? (g.label + (g.ages ? ' · ages ' + g.ages : '')) : (classType.age_group || '');
+  const ct = classType;
+  const ages = (ct.age_min != null && ct.age_max != null) ? ct.age_min + '–' + ct.age_max : ct.age_min != null ? ct.age_min + '+' : ct.age_max != null ? 'up to ' + ct.age_max : (g && g.ages ? String(g.ages).replace('-', '–') : '');
+  document.getElementById('hero-eyebrow').textContent = (g ? g.label : (ct.age_group || '')) + (ages ? ' · ages ' + ages : '');
   document.getElementById('hero-sub').textContent = classType.description || '';
   const hd = document.getElementById('hero-dates');
   hd.textContent = classType.schedule_note || ''; hd.style.display = classType.schedule_note ? '' : 'none';
@@ -291,7 +293,8 @@ function applyClassText(title, g) {
   if (isKids) {
     document.getElementById('contact-title').textContent = 'Parent / guardian details';
     document.getElementById('contact-sub').textContent = "Who's making this booking? We'll contact you to confirm.";
-    document.getElementById('people-sub').textContent = 'Add each child coming to the class.';
+    document.getElementById('people-title').textContent = 'Participants';
+    document.getElementById('people-sub').textContent = "Add each child you'd like to register. Prices update automatically below.";
     document.getElementById('add-person-btn').textContent = '+ Add a child';
     document.getElementById('p-dob-wrap').style.display = '';
     document.getElementById('p-phone-wrap').style.display = 'none';
@@ -484,7 +487,7 @@ function renderPeople() {
   const first = document.getElementById('c-first').value.trim();
   const last = document.getElementById('c-last').value.trim();
   const me = (first || last) ? esc((first + ' ' + last).trim()) : 'You';
-  let html = isKids ? (extraPeople.length ? '' : '<p class="hint">No children added yet.</p>')
+  let html = isKids ? ''
     : '<div class="person-row"><div><div class="person-name">' + me + '</div><div class="person-sub">Booking contact</div></div></div>';
   extraPeople.forEach((p, i) => {
     const sub = isKids ? (p.dob ? 'Born ' + esc(fmtDay(p.dob, { month: 'short', day: 'numeric', year: 'numeric' })) : '') : [p.phone, p.email].filter(Boolean).map(esc).join(' · ');
@@ -529,10 +532,15 @@ function savePerson() {
   }
   if (editingIdx != null) extraPeople[editingIdx] = person; else extraPeople.push(person);
   closeModal('person-popup');
+  if (isKids) document.getElementById('add-person-btn').textContent = extraPeople.length ? '+ Add another child' : '+ Add a child';
   renderPeople();
   recalc();
 }
-function removePerson(i) { extraPeople.splice(i, 1); renderPeople(); recalc(); }
+function removePerson(i) {
+  extraPeople.splice(i, 1);
+  if (isKids) document.getElementById('add-person-btn').textContent = extraPeople.length ? '+ Add another child' : '+ Add a child';
+  renderPeople(); recalc();
+}
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -542,7 +550,7 @@ function recalc() {
   const sel = selectedSessions();
   const body = document.getElementById('pricing-body');
   if (!sel.length) { body.innerHTML = '<p class="price-empty">Pick at least one date above to see pricing.</p>'; return; }
-  if (!peopleCount()) { body.innerHTML = '<p class="price-empty">Add at least one child to see pricing.</p>'; return; }
+  if (!peopleCount()) { body.innerHTML = '<p class="price-empty">Add a child above to see pricing.</p>'; return; }
   const q = computeQuote(sel, peopleCount());
   let html = '';
   if (q.friend_applied) html += '<div class="earlybird-flag">👯 Bring-a-friend discount applied</div> ';

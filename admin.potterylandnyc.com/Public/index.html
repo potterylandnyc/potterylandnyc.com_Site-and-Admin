@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-07 -->
+<!-- v26.10.19-08 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -839,6 +839,8 @@ function ctAdminRender(){
           opts.map(function(o){ return '<option'+(o===c.age_group?' selected':'')+'>'+scEsc(o)+'</option>'; }).join('') + '</select></div>' +
         '<div class="form-group"><label>Category</label><select onchange="ctAdminDraft['+i+'].category=this.value"><option value="">—</option>' +
           adminCategories.concat(c.category && adminCategories.indexOf(c.category) < 0 ? [c.category] : []).map(function(o){ return '<option'+(o===c.category?' selected':'')+'>'+scEsc(o)+'</option>'; }).join('') + '</select></div>' +
+        '<div class="form-group"><label>Ages from (optional)</label><input type="number" min="0" step="1" value="'+(c.age_min==null?'':c.age_min)+'" oninput="ctAdminDraft['+i+'].age_min=this.value"></div>' +
+        '<div class="form-group"><label>Ages to (optional)</label><input type="number" min="0" step="1" value="'+(c.age_max==null?'':c.age_max)+'" oninput="ctAdminDraft['+i+'].age_max=this.value"></div>' +
         '<div class="form-group"><label>Public title (optional)</label><input type="text" placeholder="'+scEsc(shown)+'" value="'+scEsc(c.public_title||'')+'" oninput="ctAdminDraft['+i+'].public_title=this.value"></div>' +
         '<div class="form-group"><label>Web name (link)</label><input type="text" placeholder="e.g. kids-wheel" value="'+scEsc(c.slug||'')+'" oninput="ctAdminDraft['+i+'].slug=this.value"></div>' +
         '<div class="form-group"><label>Bring-a-friend ($ off each)</label><input type="number" min="0" step="0.01" value="'+ctAdminMoney(c.friend_discount)+'" oninput="ctAdminDraft['+i+'].friend_discount=this.value"></div>' +
@@ -876,6 +878,7 @@ async function ctAdminSave(btn){
       paint_first_price:num(c.paint_first_price), paint_additional_price:num(c.paint_additional_price),
       description:String(c.description||'').trim() || null, schedule_note:String(c.schedule_note||'').trim() || null,
       category:String(c.category||'').trim() || null,
+      age_min: isNaN(parseInt(c.age_min,10)) ? null : parseInt(c.age_min,10), age_max: isNaN(parseInt(c.age_max,10)) ? null : parseInt(c.age_max,10),
       friend_promo_on:!!c.friend_promo_on, intro_promo_on:!!c.intro_promo_on, intro_promo_amount:num(c.intro_promo_amount)||0,
       intro_promo_dates: c.intro_promo_dates_text != null ? String(c.intro_promo_dates_text).split(/[\s,]+/).filter(Boolean) : (c.intro_promo_dates||[]),
       active:c.active!==false, sort_order:i+1, updated_at:new Date().toISOString() };

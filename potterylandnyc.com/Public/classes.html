@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-02 — classes list, built from table class_types (shared with the order app and admin) -->
+<!-- v26.10.19-03 — classes list, built from table class_types (shared with the order app and admin) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -62,6 +62,13 @@ const catQs = CATEGORY ? '&category=' + encodeURIComponent(CATEGORY) : '';
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function money0(n) { return '$' + (Number(n) % 1 ? Number(n).toFixed(2) : Number(n).toFixed(0)); }
+// A class's own ages (class_types.age_min/max), else its age group's ages
+function classAges(t, g) {
+  if (t.age_min != null && t.age_max != null) return t.age_min + '–' + t.age_max;
+  if (t.age_min != null) return t.age_min + '+';
+  if (t.age_max != null) return 'up to ' + t.age_max;
+  return g && g.ages ? String(g.ages).replace('-', '–') : '';
+}
 function fmtDay(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -84,17 +91,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shownGroups = used.filter(g => !GROUP || g.label.toLowerCase() === GROUP);
     const html = shownGroups.map(g => {
       const items = all.filter(t => t.age_group === g.label);
-      return '<h2 class="cl-group-title">' + esc(g.label) + (g.ages ? ' <span style="font-size:15px;color:var(--color-text-muted);">· ages ' + esc(g.ages) + '</span>' : '') + '</h2>' +
+      return '<h2 class="cl-group-title">' + esc(g.label) + '</h2>' +
         items.map(t => {
           const title = t.public_title || ((g.prefix || g.label) + ' ' + t.name);
           const dates = (sessions || []).filter(s => s.class_type_id === t.id);
           const pk = (t.packages || []).slice().sort((a, b) => a.classes - b.classes)[0];
           const meta = [];
+          const ages = classAges(t, g);
+          if (ages) meta.push('Ages ' + esc(ages));
           if (pk) meta.push('From ' + money0(pk.price) + (pk.classes > 1 ? ' for ' + pk.classes + ' classes' : '') + ' + tax');
           meta.push(dates.length ? '🗓️ Next: ' + fmtDay(dates[0].date) + ' · ' + dates.length + ' upcoming date' + (dates.length > 1 ? 's' : '') : '🗓️ New dates coming soon');
           if (t.schedule_note) meta.push(esc(t.schedule_note));
           return '<a class="card cl-card" href="/classes/' + encodeURIComponent(t.slug) + '">' +
-            '<div class="cl-eyebrow">' + esc(g.label) + '</div><h3>' + esc(title) + '</h3>' +
+            '<h3>' + esc(title) + '</h3>' +
             '<div class="cl-meta">' + meta.map(m => '<span>' + m + '</span>').join('') + '</div>' +
             (t.description ? '<div class="cl-desc">' + esc(t.description) + '</div>' : '') +
             '<span class="cl-btn">' + (dates.length ? 'See dates & book →' : 'Learn more →') + '</span></a>';
