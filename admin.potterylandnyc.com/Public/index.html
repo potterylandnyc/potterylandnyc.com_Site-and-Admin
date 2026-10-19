@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-03 -->
+<!-- v26.10.19-04 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -292,7 +292,7 @@ tr:hover td { background: var(--bg); }
       <button class="tab" onclick="switchTab('pricing')">&#128176; Pricing</button>
       <button class="tab" onclick="switchTab('inquiries')">&#128140; Inquiries<span class="inq-tab-count" id="inq-tab-count"></span></button>
       <button class="tab" onclick="switchTab('signups')">&#128197; Sunday Club</button>
-      <button class="tab" onclick="switchTab('wheel')">&#127994; Wheel Throwing</button>
+      <button class="tab" onclick="switchTab('wheel')">&#127994; Class bookings</button>
       <button class="tab" onclick="switchTab('campaigns')">&#128179; Campaigns</button>
     </div>
 
@@ -548,7 +548,7 @@ tr:hover td { background: var(--bg); }
     <div class="tab-panel" id="tab-wheel">
       <div class="card">
         <div class="card-title">
-          <span>Wheel Throwing — Adult</span>
+          <span id="wt-tab-title">Class bookings</span>
           <span style="display:flex;gap:8px;">
             <button class="btn btn-primary btn-sm" onclick="wtOpenModal()">+ Add booking</button>
             <button class="btn btn-ghost btn-sm" onclick="loadWheel()">Refresh</button>
@@ -842,6 +842,14 @@ function ctAdminRender(){
         '<div class="form-group"><label>Paint + 2nd firing: 1st piece ($)</label><input type="number" min="0" step="0.01" value="'+ctAdminMoney(c.paint_first_price)+'" oninput="ctAdminDraft['+i+'].paint_first_price=this.value"></div>' +
         '<div class="form-group"><label>Each additional ($)</label><input type="number" min="0" step="0.01" value="'+ctAdminMoney(c.paint_additional_price)+'" oninput="ctAdminDraft['+i+'].paint_additional_price=this.value"></div>' +
       '</div>' +
+      '<div class="form-group" style="margin-top:12px;"><label>Website description</label><textarea rows="3" oninput="ctAdminDraft['+i+'].description=this.value">'+scEsc(c.description||'')+'</textarea></div>' +
+      '<div class="form-group"><label>Schedule note (e.g. Wednesday evenings · 7:30 PM · 1.5-hour class)</label><input type="text" value="'+scEsc(c.schedule_note||'')+'" oninput="ctAdminDraft['+i+'].schedule_note=this.value"></div>' +
+      '<div class="form-grid">' +
+        '<div class="form-group"><label><input type="checkbox" style="width:auto;" '+(c.friend_promo_on?'checked':'')+' onchange="ctAdminDraft['+i+'].friend_promo_on=this.checked"> Show bring-a-friend promo on the website</label></div>' +
+        '<div class="form-group"><label><input type="checkbox" style="width:auto;" '+(c.intro_promo_on?'checked':'')+' onchange="ctAdminDraft['+i+'].intro_promo_on=this.checked"> Opening-class promo</label></div>' +
+        '<div class="form-group"><label>Opening-class discount ($ off each)</label><input type="number" min="0" step="0.01" value="'+ctAdminMoney(c.intro_promo_amount)+'" oninput="ctAdminDraft['+i+'].intro_promo_amount=this.value"></div>' +
+        '<div class="form-group"><label>Opening-class dates (YYYY-MM-DD, comma separated)</label><input type="text" value="'+scEsc((c.intro_promo_dates||[]).join(', '))+'" oninput="ctAdminDraft['+i+'].intro_promo_dates_text=this.value"></div>' +
+      '</div>' +
       '<div style="margin-top:12px;"><label style="font-size:13px;font-weight:600;">Packages (classes → price)</label><div style="margin-top:6px;">'+pk+'</div>' +
         '<button class="btn btn-ghost btn-sm" onclick="ctAdminDraft['+i+'].packages.push({classes:\'\',price:\'\'});ctAdminRender()">+ Add package</button></div>' +
       '<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:12px;"><input type="checkbox" style="width:auto;" '+(c.active!==false?'checked':'')+' onchange="ctAdminDraft['+i+'].active=this.checked;ctAdminRender()"> Active</label>' +
@@ -849,7 +857,7 @@ function ctAdminRender(){
   }).join('');
 }
 function ctAdminAdd(){
-  ctAdminDraft.push({ name:'', age_group:'', public_title:'', slug:'', packages:[], friend_discount:0, pieces_included:2, paint_first_price:'', paint_additional_price:'', active:true });
+  ctAdminDraft.push({ name:'', age_group:'', public_title:'', slug:'', description:'', schedule_note:'', friend_promo_on:false, intro_promo_on:false, intro_promo_amount:0, intro_promo_dates:[], packages:[], friend_discount:0, pieces_included:2, paint_first_price:'', paint_additional_price:'', active:true });
   ctAdminRender();
 }
 async function ctAdminSave(btn){
@@ -862,8 +870,12 @@ async function ctAdminSave(btn){
       packages:(c.packages||[]).map(function(p){ return { classes:parseInt(p.classes,10), price:num(p.price) }; }).filter(function(p){ return p.classes>0 && p.price!==null; }).sort(function(x,y){ return x.classes-y.classes; }),
       friend_discount:num(c.friend_discount)||0, pieces_included:Math.max(0, parseInt(c.pieces_included,10)||0),
       paint_first_price:num(c.paint_first_price), paint_additional_price:num(c.paint_additional_price),
+      description:String(c.description||'').trim() || null, schedule_note:String(c.schedule_note||'').trim() || null,
+      friend_promo_on:!!c.friend_promo_on, intro_promo_on:!!c.intro_promo_on, intro_promo_amount:num(c.intro_promo_amount)||0,
+      intro_promo_dates: c.intro_promo_dates_text != null ? String(c.intro_promo_dates_text).split(/[\s,]+/).filter(Boolean) : (c.intro_promo_dates||[]),
       active:c.active!==false, sort_order:i+1, updated_at:new Date().toISOString() };
   });
+  if (rows.some(function(r){ return r.intro_promo_dates.some(function(d){ return !/^\d{4}-\d{2}-\d{2}$/.test(d); }); })){ showAlert('alert-pricing','Opening-class dates must look like 2026-10-21.', false); return; }
   if (rows.some(function(r){ return !r.name || !r.age_group; })){ showAlert('alert-pricing','Each class type needs a class name and an age group.', false); return; }
   if (rows.some(function(r){ return labels.indexOf(r.age_group) < 0; })){ showAlert('alert-pricing','A class type uses an age group that doesn\'t exist (age groups are set in the order app → Settings → Classes).', false); return; }
   if (rows.some(function(r, i){ return r.packages.length !== (ctAdminDraft[i].packages||[]).length; })){ showAlert('alert-pricing','Each package needs a number of classes and a price (or remove it).', false); return; }
@@ -2180,12 +2192,13 @@ async function custAddPeople(kind, rec, custId){
   var people = [], group, source;
   if (kind==='wheel'){
     var d = (rec.class_dates||[]).slice().sort()[0];
-    group = 'Wheel class' + (d ? ' ' + new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '');
+    group = (rec.class_type || 'Class') + (d ? ' ' + new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '');
     source = 'wheel_booking';
     (Array.isArray(rec.participants)?rec.participants:[]).forEach(function(p){
       if (p.is_contact) return;
       var name = ((p.first||'')+' '+(p.last||'')).trim();
-      if (name) people.push({ name:name, initials:custInitials(name), birth_date:null });
+      // Kids class: children go in the parent's Family group with their date of birth
+      if (name) people.push({ name:name, initials:custInitials(name), birth_date:p.dob||null, group:p.child ? 'Family' : null });
     });
   } else {
     group = 'Family'; source = 'sunday_club';
@@ -2197,7 +2210,7 @@ async function custAddPeople(kind, rec, custId){
   var ex = await sbClient.from('customer_people').select('name').eq('customer_id', custId);
   var have = {}; (ex.data||[]).forEach(function(p){ if (p.name) have[String(p.name).toLowerCase()] = true; });
   var rows = people.filter(function(p){ return !have[p.name.toLowerCase()]; }).map(function(p){
-    return { customer_id:custId, name:p.name, initials:p.initials||null, group_label:group, birth_date:p.birth_date, source:source };
+    return { customer_id:custId, name:p.name, initials:p.initials||null, group_label:p.group||group, birth_date:p.birth_date, source:source };
   });
   if (rows.length){ var r = await sbClient.from('customer_people').insert(rows); if (r.error) console.warn('Could not add people', r.error); }
 }
@@ -2292,14 +2305,19 @@ function custLinkBox(kind, rec){
 // 'website_wheel_adult' row in settings — the same row wheel.html reads, so the
 // math below must stay in step with wheel.html's computeQuote().
 var WT_CLASS_TYPE = 'Adult Wheel Throwing';
-var WT_SETTINGS_KEY = 'website_wheel_adult';
-var WT_CLASS_SLUG = 'adult-wheel';   // class_types row: packages, paint price, friend amount (promo switches stay in WT_SETTINGS_KEY)
-var wtClassType = null;
-function wtApplyClassType(){
-  if (!wtClassType || !wtCfg) return;
-  if (Array.isArray(wtClassType.packages) && wtClassType.packages.length) wtCfg.packages = wtClassType.packages;
-  if (wtClassType.paint_first_price != null) wtCfg.paint_addon_price = Number(wtClassType.paint_first_price);
-  if (wtClassType.friend_discount != null) wtCfg.friend_promo_amount = Number(wtClassType.friend_discount);
+var WT_SETTINGS_KEY = 'website_wheel_adult';
+// Class bookings tab: works on one class type at a time (picker at the top; remembered per device).
+// Prices, promos and dates come from that class_types row; tax = settings 'tax_rate' (same as the order app).
+var WT_CLASS_SLUG = 'adult-wheel';
+try { WT_CLASS_SLUG = localStorage.getItem('pgl_wt_class') || WT_CLASS_SLUG; } catch(e){}
+var wtClassType = null, wtTypes = [], wtIsKids = false, wtClassName = '';
+function wtSetClass(slug){ WT_CLASS_SLUG = slug; try { localStorage.setItem('pgl_wt_class', slug); } catch(e){} wtOpen = {}; loadWheel(); }
+function wtApplyClassType(){
+  return; // promos/prices are now built from the class type in loadWheel
+  if (!wtClassType || !wtCfg) return;
+  if (Array.isArray(wtClassType.packages) && wtClassType.packages.length) wtCfg.packages = wtClassType.packages;
+  if (wtClassType.paint_first_price != null) wtCfg.paint_addon_price = Number(wtClassType.paint_first_price);
+  if (wtClassType.friend_discount != null) wtCfg.friend_promo_amount = Number(wtClassType.friend_discount);
 }
 var wtData = [];
 var wtPayments = {};
@@ -2399,8 +2417,16 @@ function wtOwed(b){ return Number(b.amount_due)||0; }
 async function loadWheel(){
   if (!sbClient) return;
   var body = document.getElementById('wheel-body');
-  var rct = await sbClient.from('class_types').select('*').eq('slug', WT_CLASS_SLUG).maybeSingle();
-  wtClassType = rct.data || null;
+  var rct = await sbClient.from('class_types').select('*').order('sort_order');
+  wtTypes = rct.data || [];
+  wtClassType = wtTypes.find(function(t){ return t.slug === WT_CLASS_SLUG; }) || wtTypes.find(function(t){ return t.active !== false; }) || null;
+  var rset = await sbClient.from('settings').select('key,value').in('key', ['class_age_groups','tax_rate']);
+  var wset = {}; (rset.data||[]).forEach(function(x){ wset[x.key] = x.value; });
+  var wgroups = Array.isArray(wset.class_age_groups) ? wset.class_age_groups : [];
+  var wg = wtClassType ? (wgroups.find(function(g){ return g.label === wtClassType.age_group; }) || null) : null;
+  wtIsKids = !!(wg && wg.child);
+  wtClassName = wtClassType ? ((wg ? (wg.prefix || wg.label) : (wtClassType.age_group||'')) + ' ' + wtClassType.name).trim() : WT_CLASS_TYPE;
+  var tt = document.getElementById('wt-tab-title'); if (tt) tt.textContent = 'Class bookings — ' + (wtClassType && wtClassType.public_title || wtClassName);
   var r = await Promise.all([
     sbClient.from('pgl_wheel_bookings').select('*').order('created_at',{ascending:false}),
     sbClient.from('pgl_wheel_payments').select('*').order('created_at'),
@@ -2408,12 +2434,23 @@ async function loadWheel(){
     sbClient.from('settings').select('value').eq('key', WT_SETTINGS_KEY).maybeSingle()
   ]);
   if (r[0].error){ body.innerHTML = '<div class="empty"><p>Could not load wheel bookings: '+scEsc(r[0].error.message)+'</p></div>'; return; }
-  wtData = r[0].data || [];
+  wtData = (r[0].data || []).filter(function(b){
+    if (!wtClassType) return true;
+    return b.class_type_id ? b.class_type_id === wtClassType.id : String(b.class_type||'').toLowerCase() === wtClassName.toLowerCase();
+  });
   wtPayments = {};
   (r[1].data||[]).forEach(function(p){ (wtPayments[p.booking_id]=wtPayments[p.booking_id]||[]).push(p); });
   wtClasses = r[2].data || [];
-  wtCfg = (r[3].data && r[3].data.value) || { packages:[{classes:1,price:85},{classes:3,price:235},{classes:5,price:370}], tax_rate:0.08875, paint_addon_price:25 };
-  wtApplyClassType();
+  var ct = wtClassType || {};
+  wtCfg = {
+    class_type: wtClassName,
+    packages: Array.isArray(ct.packages) ? ct.packages : [],
+    tax_rate: Number(wset.tax_rate) || 0,
+    paint_addon_price: Number(ct.paint_first_price) || 0,
+    friend_promo_on: !!ct.friend_promo_on, friend_promo_amount: Number(ct.friend_discount) || 0,
+    first_class_promo_on: !!ct.intro_promo_on, first_class_promo_amount: Number(ct.intro_promo_amount) || 0,
+    first_class_promo_dates: Array.isArray(ct.intro_promo_dates) ? ct.intro_promo_dates : []
+  };
   if (!customersCache){ var rc = await sbClient.from('customers').select('id,first_name,last_name,phone,email'); customersCache = rc.data || []; }
   renderWheel();
 }
@@ -2467,7 +2504,9 @@ function renderWheel(){
     '<label><input type="checkbox" '+(wtCfg.first_class_promo_on?'checked':'')+' onchange="wtSetPromo(\'first_class_promo_on\', this.checked)"> Opening class '+wtPromoDates().map(function(d){ return wtFmtDay(d); }).join(' / ')+' ('+scMoney(wtCfg.first_class_promo_amount||0)+' off)</label>' +
     '<span class="muted" style="font-size:12px;">Changes the public page right away. Existing bookings keep their price.</span></div>';
 
-  var controls = '<div class="sc-controls"><div class="sc-seg">' +
+  var picker = '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;">Class&nbsp;</label><select onchange="wtSetClass(this.value)" style="max-width:280px;">' +
+    wtTypes.filter(function(t){ return t.slug && (t.active !== false || t === wtClassType); }).map(function(t){ return '<option value="'+scEsc(t.slug)+'"'+(t===wtClassType?' selected':'')+'>'+scEsc(t.public_title || ctDisplay(t))+'</option>'; }).join('') + '</select></div>';
+  var controls = picker + '<div class="sc-controls"><div class="sc-seg">' +
       '<button class="'+(wtView==='bookings'?'active':'')+'" onclick="wtSetView(\'bookings\')">Bookings</button>' +
       '<button class="'+(wtView==='schedule'?'active':'')+'" onclick="wtSetView(\'schedule\')">Upcoming schedule</button>' +
     '</div>' +
@@ -2662,13 +2701,14 @@ async function wtAddPaint(id){
   wtOpen[id] = true;
   await loadWheel();
 }
+// Promo switches live on the class type (class_types.friend_promo_on / intro_promo_on).
 async function wtSetPromo(key, on){
-  var r0 = await sbClient.from('settings').select('value').eq('key', WT_SETTINGS_KEY).maybeSingle();
-  var val = Object.assign({}, (r0.data && r0.data.value) || wtCfg);
-  val[key] = on;
-  var r = await sbClient.from('settings').update({ value: val }).eq('key', WT_SETTINGS_KEY);
+  if (!wtClassType) return;
+  var col = key === 'friend_promo_on' ? 'friend_promo_on' : 'intro_promo_on';
+  var upd = {}; upd[col] = on;
+  var r = await sbClient.from('class_types').update(upd).eq('id', wtClassType.id);
   if (r.error){ alert('Error: '+r.error.message); return; }
-  wtCfg = val; wtApplyClassType(); renderWheel();
+  wtClassType[col] = on; wtCfg[key] = on; renderWheel();
 }
 
 // ---- Add / edit modal ----
@@ -2704,6 +2744,11 @@ function wtCloseModal(){ document.getElementById('wt-modal').classList.remove('o
 function wtRenderModalPeople(){
   var opts = document.getElementById('wt-m-phone-country').innerHTML;
   document.getElementById('wt-m-people').innerHTML = wtEditPeople.map(function(p, i){
+    if (wtIsKids) return '<div class="wt-person-row">' +
+      '<input type="text" placeholder="Child first name *" id="wt-p-first-'+i+'" value="'+scEsc(p.first||'')+'">' +
+      '<input type="text" placeholder="Last name *" id="wt-p-last-'+i+'" value="'+scEsc(p.last||'')+'">' +
+      '<label style="font-size:12px;">Date of birth <input type="date" id="wt-p-dob-'+i+'" value="'+scEsc(p.dob||'')+'"></label>' +
+      '<button class="btn btn-ghost btn-sm wt-person-remove" onclick="wtModalRemovePerson('+i+')">Remove</button></div>';
     return '<div class="wt-person-row">' +
       '<input type="text" placeholder="First name *" id="wt-p-first-'+i+'" value="'+scEsc(p.first||'')+'">' +
       '<input type="text" placeholder="Last name *" id="wt-p-last-'+i+'" value="'+scEsc(p.last||'')+'">' +
@@ -2712,7 +2757,7 @@ function wtRenderModalPeople(){
       '<input type="email" placeholder="Email (optional)" id="wt-p-email-'+i+'" value="'+scEsc(p.email||'')+'">' +
       '<button class="btn btn-ghost btn-sm wt-person-remove" onclick="wtModalRemovePerson('+i+')">Remove</button></div>';
   }).join('');
-  wtEditPeople.forEach(function(p, i){ splitPhone(p.phone||'', 'wt-p-phone-country-'+i, 'wt-p-phone-'+i); });
+  if (!wtIsKids) wtEditPeople.forEach(function(p, i){ splitPhone(p.phone||'', 'wt-p-phone-country-'+i, 'wt-p-phone-'+i); });
 }
 // Reads the person rows back into wtEditPeople. Returns an error message, or '' if all valid.
 function wtReadModalPeople(){
@@ -2720,6 +2765,10 @@ function wtReadModalPeople(){
   wtEditPeople = wtEditPeople.map(function(p, i){
     var first = document.getElementById('wt-p-first-'+i).value.trim();
     var last = document.getElementById('wt-p-last-'+i).value.trim();
+    if (wtIsKids) {
+      if (!err && (!first || !last)) err = 'Each child needs a first and last name.';
+      return { first:first, last:last, dob: document.getElementById('wt-p-dob-'+i).value || '', child:true };
+    }
     var raw = document.getElementById('wt-p-phone-'+i).value.trim();
     if (!err && (!first || !last)) err = 'Each extra person needs a first and last name.';
     if (!err && raw && !isValidPhone('wt-p-phone-country-'+i, 'wt-p-phone-'+i)) err = 'Phone for ' + (first || 'person ' + (i+2)) + ' looks incomplete — fix it or leave it blank.';
@@ -2768,8 +2817,8 @@ async function wtSaveModal(){
   var contactP = { first:first, last:last, phone:phone||'', email:email, is_contact:true };
   var payload = {
     contact_first:first, contact_last:last, contact_phone:phone, contact_email:email||null,
-    participants: [contactP].concat(wtEditPeople),
-    people_count: 1+wtEditPeople.length,
+    participants: wtIsKids ? wtEditPeople.slice() : [contactP].concat(wtEditPeople),
+    people_count: wtIsKids ? wtEditPeople.length : 1+wtEditPeople.length,
     class_ids: dates.map(function(d){ return d.id; }), class_dates: dates.map(function(d){ return d.date; }), class_count: dates.length,
     quote: q, amount_due: Math.round((q.total + (b?wtAddonsTotal(b):0))*100)/100,
     amount_due_is_override:false, override_note:null,
@@ -2782,7 +2831,9 @@ async function wtSaveModal(){
   } else {
     if (!dates.length) return wtModalError('Pick at least one date.');
     payload.id = crypto.randomUUID();
+    if (wtIsKids && !wtEditPeople.length) return wtModalError('Add at least one child.');
     payload.status = 'confirmed'; payload.source = 'manual'; payload.contact_notify = 'Email'; payload.branch_id = 'fb';
+    payload.class_type = wtClassName; payload.class_type_id = wtClassType ? wtClassType.id : null;
     sendConfirm = document.getElementById('wt-m-notify').checked && !!email;
     r = await sbClient.from('pgl_wheel_bookings').insert([payload]);
   }

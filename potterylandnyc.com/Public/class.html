@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<!-- v26.10.19-01 — one booking page for every class: /classes/<slug> (see _redirects) -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classes — Pottery & Glass Land</title>
+<meta name="description" content="Book a class at Pottery & Glass Land, Brooklyn.">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/registration.css">
+<link rel="stylesheet" href="/wheel.css">
+<link href="https://fonts.googleapis.com/css2?family=Unna:wght@400;700&family=Inter:wght@200;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo">Pottery &amp; Glass Land<span>Brooklyn's Creative Studio</span></a>
+    <a href="/classes" class="back-link">← All classes</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <p class="hero-eyebrow" id="hero-eyebrow"></p>
+    <h1 id="hero-title">Classes</h1>
+    <p class="hero-sub" id="hero-sub"></p>
+    <div class="hero-dates" id="hero-dates" style="display:none;"></div>
+  </div>
+</section>
+
+<main>
+  <div class="container">
+
+    <!-- PLANS -->
+    <div class="card">
+      <h2>Packages</h2>
+      <p class="card-sub">Pick your dates below and the best price is applied automatically.</p>
+      <div class="plan-list" id="plan-list"></div>
+      <p class="plan-fine">Each class: create a decorative piece, includes 1 firing.</p>
+      <p class="group-note">Booking for a group, party or corporate event? Contact us for group pricing:<br>
+        Call or <a href="https://wa.me/13102792466" target="_blank" rel="noopener">WhatsApp</a> <a href="tel:+13102792466">(310) 279-2466</a> | email <a href="mailto:potterylandnyc@gmail.com?subject=Group%20class%20pricing">potterylandnyc@gmail.com</a></p>
+      <div class="promo-list" id="promo-list"></div>
+      <div class="addon-box">
+        <strong>Want a usable piece?</strong> 3 weeks after class, come back to paint your piece — <strong id="addon-price">$25</strong> per piece, includes glazing and a 2nd firing so it's water-tight and food-safe. No need to decide now — see how your piece comes out first.
+        <div style="margin-top:8px;"><button type="button" class="link-btn" onclick="openModal('firing-popup')">How firing works</button></div>
+      </div>
+    </div>
+
+    <div id="form-wrap">
+      <form id="wt-form" autocomplete="on" novalidate>
+
+        <!-- DATES -->
+        <div class="card">
+          <h2>Choose your dates</h2>
+          <p class="card-sub" id="dates-sub">Pick as many dates as you like.</p>
+          <div class="date-grid" id="date-grid"><p class="hint">Loading dates…</p></div>
+          <button type="button" class="link-btn more-dates" id="more-dates" style="display:none;" onclick="showAllDates()">Show more dates</button>
+        </div>
+
+        <!-- CONTACT -->
+        <div class="card">
+          <h2 id="contact-title">Your details</h2>
+          <p class="card-sub" id="contact-sub">Who's making this booking? We'll contact you to confirm.</p>
+          <div class="form-row">
+            <div class="form-group"><label>First name <span class="req">*</span></label><input type="text" id="c-first" required autocomplete="given-name" oninput="renderPeople()"></div>
+            <div class="form-group"><label>Last name <span class="req">*</span></label><input type="text" id="c-last" required autocomplete="family-name" oninput="renderPeople()"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Phone <span class="req">*</span></label>
+              <div class="phone-row">
+                <select id="c-phone-country" class="phone-country">
+                  <option value="+1">US +1</option>
+                  <option value="+1-CA">CA +1</option>
+                  <option value="+44">UK +44</option>
+                  <option value="+972">IL +972</option>
+                  <option value="+61">AU +61</option>
+                  <option value="+64">NZ +64</option>
+                  <option value="+27">ZA +27</option>
+                  <option value="+33">FR +33</option>
+                  <option value="+49">DE +49</option>
+                  <option value="+39">IT +39</option>
+                  <option value="+34">ES +34</option>
+                  <option value="+31">NL +31</option>
+                  <option value="+32">BE +32</option>
+                  <option value="+41">CH +41</option>
+                  <option value="+43">AT +43</option>
+                  <option value="+55">BR +55</option>
+                  <option value="+52">MX +52</option>
+                  <option value="+54">AR +54</option>
+                  <option value="+91">IN +91</option>
+                  <option value="+86">CN +86</option>
+                  <option value="+81">JP +81</option>
+                  <option value="+82">KR +82</option>
+                  <option value="+7">RU +7</option>
+                  <option value="+20">EG +20</option>
+                  <option value="+212">MA +212</option>
+                  <option value="+234">NG +234</option>
+                  <option value="+other">Other</option>
+                </select>
+                <input type="tel" id="c-phone" required placeholder="555-000-0000" autocomplete="tel-national" oninput="formatPhone(this,'c-phone-country')">
+              </div>
+            </div>
+            <div class="form-group"><label>Email <span class="req">*</span></label><input type="email" id="c-email" required placeholder="you@email.com" autocomplete="email"></div>
+          </div>
+          <div class="form-group">
+            <label>Preferred way for us to reach you <span class="req">*</span></label>
+            <div class="contact-pref">
+              <div class="pref-opt"><input type="radio" name="notify" id="notify-whatsapp" value="WhatsApp"><label for="notify-whatsapp">WhatsApp</label></div>
+              <div class="pref-opt"><input type="radio" name="notify" id="notify-sms" value="SMS"><label for="notify-sms">SMS / Text</label></div>
+              <div class="pref-opt"><input type="radio" name="notify" id="notify-email" value="Email" checked><label for="notify-email">Email</label></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Comments / questions</label>
+            <textarea id="c-comments" rows="3" placeholder="Optional"></textarea>
+          </div>
+        </div>
+
+        <!-- PEOPLE -->
+        <div class="card">
+          <h2>Who's coming?</h2>
+          <p class="card-sub"><span id="people-sub">Bringing someone? Add them here.</span><span id="friend-note"></span></p>
+          <div id="people-list"></div>
+          <button type="button" class="add-row-btn" id="add-person-btn" onclick="openPersonModal()">+ Add another person</button>
+        </div>
+
+        <!-- PRICING -->
+        <div class="card pricing-card on-dark">
+          <h2>Your price</h2>
+          <div id="pricing-body"><p class="price-empty">Pick at least one date above to see pricing.</p></div>
+        </div>
+
+        <!-- SUBMIT -->
+        <div class="card">
+          <div class="submit-note">
+            <strong>This is a reservation request, not a final booking.</strong> Once you submit, we'll reach out to confirm your spot and arrange payment.
+          </div>
+          <div class="form-error" id="form-error"></div>
+          <button type="submit" class="submit-btn" id="submit-btn">Submit reservation request</button>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="card success-card" id="success-card" style="display:none;">
+      <div class="check">✓</div>
+      <h2>Request received!</h2>
+      <p id="success-msg">Thank you — we've got your reservation request.</p>
+      <p><strong>What happens next:</strong> we'll reach out by your preferred contact method to confirm your spot and arrange payment.</p>
+      <a href="/" class="home-btn">Back to home</a>
+    </div>
+
+    <!-- NO DATES -->
+    <div class="card closed-card" id="closed-card" style="display:none;">
+      <div class="closed-icon">🗓️</div>
+      <h2 id="closed-title">No upcoming dates right now</h2>
+      <p><span id="closed-msg">New dates are added regularly.</span> Call or WhatsApp us at <a href="tel:+13102792466">(310) 279-2466</a> and we'll let you know when the next class opens.</p>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <div>Pottery &amp; Glass Land · 1562 Coney Island Ave., Brooklyn · <a href="/">potterylandnyc.com</a></div>
+</footer>
+
+<!-- ADD PERSON POPUP -->
+<div class="modal-overlay" id="person-popup" onclick="if(event.target===this)closeModal('person-popup')">
+  <div class="modal person-modal">
+    <button type="button" class="modal-close" onclick="closeModal('person-popup')">&times;</button>
+    <h4 id="person-popup-title">Add a person</h4>
+    <div class="form-row">
+      <div class="form-group"><label>First name <span class="req">*</span></label><input type="text" id="p-first"></div>
+      <div class="form-group"><label>Last name <span class="req">*</span></label><input type="text" id="p-last"></div>
+    </div>
+    <div class="form-group" id="p-dob-wrap" style="display:none;"><label>Date of birth <span class="req">*</span></label><input type="date" id="p-dob"></div>
+    <div class="form-group" id="p-phone-wrap">
+      <label>Phone</label>
+      <div class="phone-row">
+        <select id="p-phone-country" class="phone-country">
+                  <option value="+1">US +1</option>
+                  <option value="+1-CA">CA +1</option>
+                  <option value="+44">UK +44</option>
+                  <option value="+972">IL +972</option>
+                  <option value="+61">AU +61</option>
+                  <option value="+64">NZ +64</option>
+                  <option value="+27">ZA +27</option>
+                  <option value="+33">FR +33</option>
+                  <option value="+49">DE +49</option>
+                  <option value="+39">IT +39</option>
+                  <option value="+34">ES +34</option>
+                  <option value="+31">NL +31</option>
+                  <option value="+32">BE +32</option>
+                  <option value="+41">CH +41</option>
+                  <option value="+43">AT +43</option>
+                  <option value="+55">BR +55</option>
+                  <option value="+52">MX +52</option>
+                  <option value="+54">AR +54</option>
+                  <option value="+91">IN +91</option>
+                  <option value="+86">CN +86</option>
+                  <option value="+81">JP +81</option>
+                  <option value="+82">KR +82</option>
+                  <option value="+7">RU +7</option>
+                  <option value="+20">EG +20</option>
+                  <option value="+212">MA +212</option>
+                  <option value="+234">NG +234</option>
+                  <option value="+other">Other</option>
+        </select>
+        <input type="tel" id="p-phone" placeholder="Optional" oninput="formatPhone(this,'p-phone-country')">
+      </div>
+    </div>
+    <div class="form-group" id="p-email-wrap"><label>Email</label><input type="email" id="p-email" placeholder="Optional"></div>
+    <div class="form-error" id="person-error"></div>
+    <button type="button" class="submit-btn" onclick="savePerson()">Save</button>
+  </div>
+</div>
+
+<!-- FIRING INFO POPUP -->
+<div class="modal-overlay" id="firing-popup" onclick="if(event.target===this)closeModal('firing-popup')">
+  <div class="modal firing-modal">
+    <button type="button" class="modal-close" onclick="closeModal('firing-popup')">&times;</button>
+    <h4>Firing &amp; glazes</h4>
+    <h5>Your pieces</h5>
+    <p>Your creations need up to 2 weeks to dry before firing. They should be ready for pickup — or painting — after 3 weeks. We'll let you know by WhatsApp, text or call when they're ready.</p>
+    <h5>Decorative (included)</h5>
+    <p>Fired once. You can paint it at home or leave it as is. Decorative pieces shouldn't get wet.</p>
+    <h5>Usable (<span class="addon-price-inline">$25</span> add-on)</h5>
+    <p>Paint your fired piece in-studio; we dip it in clear glaze and fire it a second time. After that it's water-tight and can be used for food, drinks, as a vase, etc.</p>
+  </div>
+</div>
+
+<script>
+// One page for every class type. The class comes from the address (/classes/<slug>, or ?c=<slug>).
+// Everything shown — title, description, schedule note, packages, promos, paint add-on — comes from
+// table class_types (shared with the order app and admin). Tax = settings 'tax_rate' (same as the
+// order app). Age groups marked child:true (settings 'class_age_groups') use the kids form: a parent /
+// guardian contact plus each child's name and date of birth.
+const CLASS_SLUG = (location.pathname.match(/\/classes\/([^\/?#]+)/) || [])[1] || new URLSearchParams(location.search).get('c') || '';
+const SUPABASE_URL = 'https://pehllmkuvrccfuvcskvj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_wHyJLfEuxJvIUeOAni_vyw_DGEcfHCM';
+const NOTIFY_FUNCTION = SUPABASE_URL + '/functions/v1/notify-wheel';
+const DATES_SHOWN_FIRST = 8;
+const ALMOST_FULL_AT = 3; // show "Almost full" when this many seats or fewer are open (confirmed + pending)
+
+const FALLBACK_CFG = {
+  class_type: '', packages: [], tax_rate: 0, paint_addon_price: 0,
+  friend_promo_on: false, friend_promo_amount: 0,
+  first_class_promo_on: false, first_class_promo_amount: 0, first_class_promo_dates: []
+};
+let classType = null;     // class_types row
+let isKids = false;       // kids form (age group child:true)
+
+let sb = null;
+let cfg = FALLBACK_CFG;
+let sessions = [];        // upcoming pgl_classes rows for this class type
+let showAll = false;
+let extraPeople = [];     // [{first,last,phone,email}]
+let editingIdx = null;
+
+// ---- Ad/campaign attribution (same as sunday-club.html) ----
+function captureUTM() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get('utm_source');
+    const campaign = params.get('utm_campaign');
+    if (source) sessionStorage.setItem('pgl_utm_source', source);
+    if (campaign) sessionStorage.setItem('pgl_utm_campaign', campaign);
+  } catch (e) {}
+}
+function getUTM() {
+  try {
+    return { source: sessionStorage.getItem('pgl_utm_source') || null, campaign: sessionStorage.getItem('pgl_utm_campaign') || null };
+  } catch (e) { return { source: null, campaign: null }; }
+}
+
+function applyClassText(title, g) {
+  document.title = title + ' — Pottery & Glass Land';
+  const md = document.querySelector('meta[name="description"]'); if (md) md.setAttribute('content', (classType.description || title).slice(0, 160));
+  document.getElementById('hero-title').textContent = title;
+  document.getElementById('hero-eyebrow').textContent = g ? (g.label + (g.ages ? ' · ages ' + g.ages : '')) : (classType.age_group || '');
+  document.getElementById('hero-sub').textContent = classType.description || '';
+  const hd = document.getElementById('hero-dates');
+  hd.textContent = classType.schedule_note || ''; hd.style.display = classType.schedule_note ? '' : 'none';
+  const pk = packagesSorted().filter(p => p.classes > 1).map(p => p.classes);
+  document.getElementById('dates-sub').textContent = 'Pick as many dates as you like' + (pk.length ? ' — the price drops at ' + pk.join(' and ') + ' classes.' : '.');
+  if (isKids) {
+    document.getElementById('contact-title').textContent = 'Parent / guardian details';
+    document.getElementById('contact-sub').textContent = "Who's making this booking? We'll contact you to confirm.";
+    document.getElementById('people-sub').textContent = 'Add each child coming to the class.';
+    document.getElementById('add-person-btn').textContent = '+ Add a child';
+    document.getElementById('p-dob-wrap').style.display = '';
+    document.getElementById('p-phone-wrap').style.display = 'none';
+    document.getElementById('p-email-wrap').style.display = 'none';
+  }
+  document.getElementById('closed-msg').textContent = 'New ' + title + ' dates are added regularly.';
+}
+function showNotFound() {
+  document.getElementById('hero-title').textContent = 'Class not found';
+  document.getElementById('form-wrap').style.display = 'none';
+  document.querySelector('main .card').style.display = 'none';
+  document.getElementById('closed-title').textContent = 'We couldn\'t find that class';
+  document.getElementById('closed-msg').innerHTML = 'See <a href="/classes">all classes</a>.';
+  document.getElementById('closed-card').style.display = 'block';
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function money(n) { return '$' + Number(n).toFixed(2); }
+function money0(n) { return '$' + (Number(n) % 1 ? Number(n).toFixed(2) : Number(n).toFixed(0)); }
+function fmtPct(r) { return (r * 100).toFixed(3).replace(/\.?0+$/, '') + '%'; }
+function fmtDay(d, opts) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', opts || { weekday: 'short', month: 'short', day: 'numeric' }); }
+function fmtTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return h12 + (m ? ':' + String(m).padStart(2, '0') : '') + ' ' + (h >= 12 ? 'PM' : 'AM');
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
+
+document.addEventListener('DOMContentLoaded', async () => {
+  captureUTM();
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const [{ data: ct }, { data: setRows }] = await Promise.all([
+      CLASS_SLUG ? sb.from('class_types').select('*').eq('slug', CLASS_SLUG.toLowerCase()).maybeSingle() : Promise.resolve({ data: null }),
+      sb.from('settings').select('key,value').in('key', ['tax_rate', 'class_age_groups'])
+    ]);
+    const set = {}; (setRows || []).forEach(r => set[r.key] = r.value);
+    const groups = Array.isArray(set.class_age_groups) ? set.class_age_groups : [];
+    if (!ct) {
+      // /classes/kids or /classes/adults → the classes list filtered to that age group
+      const g = groups.find(x => String(x.label || '').toLowerCase() === CLASS_SLUG.toLowerCase());
+      if (g) { location.replace('/classes?group=' + encodeURIComponent(CLASS_SLUG.toLowerCase())); return; }
+      showNotFound(); return;
+    }
+    classType = ct;
+    const g = groups.find(x => x.label === ct.age_group) || null;
+    isKids = !!(g && g.child);
+    const displayName = ((g ? (g.prefix || g.label) : (ct.age_group || '')) + ' ' + ct.name).trim();
+    const title = ct.public_title || displayName;
+    cfg = Object.assign({}, FALLBACK_CFG, {
+      class_type: displayName,
+      packages: Array.isArray(ct.packages) ? ct.packages : [],
+      tax_rate: Number(set.tax_rate) || 0,
+      paint_addon_price: Number(ct.paint_first_price) || 0,
+      paint_additional_price: Number(ct.paint_additional_price) || 0,
+      friend_promo_on: !!ct.friend_promo_on && Number(ct.friend_discount) > 0,
+      friend_promo_amount: Number(ct.friend_discount) || 0,
+      first_class_promo_on: !!ct.intro_promo_on && Number(ct.intro_promo_amount) > 0,
+      first_class_promo_amount: Number(ct.intro_promo_amount) || 0,
+      first_class_promo_dates: Array.isArray(ct.intro_promo_dates) ? ct.intro_promo_dates : []
+    });
+    applyClassText(title, g);
+    const { data: cls } = await sb.from('pgl_classes').select('id,date,time,duration,total_spots,spots_remaining,spots_pending,branch_id')
+      .eq('class_type_id', ct.id).eq('active', true).gte('date', todayStr()).order('date').order('time');
+    sessions = cls || [];
+  } catch (e) { showNotFound(); return; }
+  renderPlans();
+  renderDates();
+  renderPeople();
+  recalc();
+  if (!sessions.length) {
+    document.getElementById('form-wrap').style.display = 'none';
+    document.getElementById('closed-card').style.display = 'block';
+  }
+});
+
+// ---- Pricing ----
+function packagesSorted() { return (cfg.packages || []).slice().sort((a, b) => a.classes - b.classes); }
+
+// Exact package size -> package price. In-between counts use the per-class
+// rate of the package below, rounded up to the next whole dollar
+// (2 = $170, 4 = $314, 6 = $444 with 85/235/370).
+function pricePerPerson(n) {
+  if (n <= 0) return 0;
+  const pk = packagesSorted();
+  const exact = pk.find(p => p.classes === n);
+  if (exact) return Number(exact.price);
+  const tier = pk.filter(p => p.classes <= n).pop() || pk[0];
+  return Math.ceil((Number(tier.price) / tier.classes) * n - 0.0001);
+}
+function packageLabel(n) {
+  return n + (n === 1 ? ' class' : ' classes');
+}
+// Opening-class promo dates: list in first_class_promo_dates (older single
+// first_class_promo_date still works). Only dates not yet passed count.
+function promoDates() {
+  const list = Array.isArray(cfg.first_class_promo_dates) && cfg.first_class_promo_dates.length
+    ? cfg.first_class_promo_dates : (cfg.first_class_promo_date ? [cfg.first_class_promo_date] : []);
+  const today = todayStr();
+  return list.filter(d => d >= today).sort();
+}
+function isPromoDate(d) { return firstClassPromoLive() && promoDates().includes(d); }
+function firstClassPromoLive() {
+  return !!(cfg.first_class_promo_on && promoDates().length);
+}
+function friendPromoLive() { return !!cfg.friend_promo_on; }
+
+function computeQuote(selected, people) {
+  const n = selected.length;
+  const per = pricePerPerson(n);
+  const friendAmt = (friendPromoLive() && people >= 2) ? Number(cfg.friend_promo_amount) || 0 : 0;
+  const promoHit = selected.map(s => s.date).filter(isPromoDate).sort()[0] || null;
+  const firstAmt = promoHit ? Number(cfg.first_class_promo_amount) || 0 : 0;
+  const perAfter = Math.max(0, per - friendAmt - firstAmt);
+  const subtotal = perAfter * people;
+  const rate = Number(cfg.tax_rate) || 0;
+  const tax = Math.round(subtotal * rate * 100) / 100;
+  const total = Math.round((subtotal + tax) * 100) / 100;
+  return {
+    class_count: n, people: people,
+    price_per_person: per, full: per * people,
+    friend_amount: friendAmt, friend_applied: friendAmt > 0,
+    first_class_amount: firstAmt, first_class_applied: firstAmt > 0,
+    first_class_date: firstAmt > 0 ? promoHit : null,
+    per_person_after: perAfter,
+    subtotal: subtotal, tax_rate: rate, tax: tax, total: total,
+    packages: cfg.packages
+  };
+}
+
+function renderPlans() {
+  const pk = packagesSorted();
+  document.getElementById('plan-list').innerHTML = pk.map(p => {
+    const per = p.classes > 1 ? ' <span class="plan-per">(' + money0(Math.round(p.price / p.classes * 100) / 100) + ' / class)</span>' : '';
+    return '<div class="plan-item"><span class="plan-name">' + packageLabel(p.classes) + '</span><span class="plan-dots"></span>' +
+      '<span class="plan-price">' + money0(p.price) + ' <span class="plan-tax">+ tax</span>' + per + '</span></div>';
+  }).join('');
+  const promos = [];
+  if (friendPromoLive()) promos.push('👯 <strong>Bring a friend:</strong> book together and you each get ' + money0(cfg.friend_promo_amount) + ' off.');
+  if (firstClassPromoLive()) promos.push('🎉 <strong>Opening class:</strong> join us on ' + promoDates().map(d => fmtDay(d, { weekday: 'long', month: 'long', day: 'numeric' })).join(' or ') + ' and get ' + money0(cfg.first_class_promo_amount) + ' off.');
+  document.getElementById('promo-list').innerHTML = promos.map(p => '<div class="promo-pill">' + p + '</div>').join('');
+  document.getElementById('friend-note').innerHTML = friendPromoLive()
+    ? ' <strong>Bring a friend and you each get ' + money0(cfg.friend_promo_amount) + ' off your session.</strong>' : '';
+  const ap = money0(cfg.paint_addon_price || 25);
+  document.getElementById('addon-price').textContent = ap;
+  document.querySelectorAll('.addon-price-inline').forEach(el => el.textContent = ap);
+}
+
+// ---- Dates ----
+function seatsLeft(s) { return s.spots_remaining == null ? s.total_spots : s.spots_remaining; }          // after confirmed bookings
+function seatsOpen(s) { return seatsLeft(s) - (Number(s.spots_pending) || 0); }                          // after pending requests too
+function peopleCount() { return isKids ? extraPeople.length : 1 + extraPeople.length; }
+function selectedSessions() {
+  const ids = Array.from(document.querySelectorAll('input[name="session"]:checked')).map(i => i.value);
+  return sessions.filter(s => ids.includes(s.id));
+}
+function renderDates() {
+  const grid = document.getElementById('date-grid');
+  if (!sessions.length) { grid.innerHTML = ''; return; }
+  const checked = new Set(selectedSessions().map(s => s.id));
+  const list = showAll ? sessions : sessions.slice(0, DATES_SHOWN_FIRST);
+  grid.innerHTML = list.map(s => {
+    // Full = confirmed seats used up. "Almost full" = confirmed + pending requests
+    // reach capacity; still bookable, but a new request may be waitlisted.
+    const left = seatsLeft(s);
+    const open = seatsOpen(s);
+    const full = left <= 0;
+    const low = !full && open <= ALMOST_FULL_AT;
+    const meta = full ? 'Full' : low ? (fmtTime(s.time) + ' · Almost full') : fmtTime(s.time);
+    const promo = isPromoDate(s.date) ? '<span class="date-tag">' + money0(cfg.first_class_promo_amount) + ' off</span>' : '';
+    return '<label class="date-opt' + (full ? ' is-full' : '') + (low ? ' is-low' : '') + '">' +
+      '<input type="checkbox" name="session" value="' + s.id + '"' + (full ? ' disabled' : '') + (checked.has(s.id) ? ' checked' : '') + ' onchange="recalc()">' +
+      '<span class="date-card"><span class="date-day">' + fmtDay(s.date) + '</span><span class="date-meta">' + meta + '</span>' + promo + '</span></label>';
+  }).join('');
+  document.getElementById('more-dates').style.display = (!showAll && sessions.length > DATES_SHOWN_FIRST) ? 'inline-block' : 'none';
+}
+function showAllDates() { showAll = true; renderDates(); }
+
+// ---- People ----
+function renderPeople() {
+  const first = document.getElementById('c-first').value.trim();
+  const last = document.getElementById('c-last').value.trim();
+  const me = (first || last) ? esc((first + ' ' + last).trim()) : 'You';
+  let html = isKids ? (extraPeople.length ? '' : '<p class="hint">No children added yet.</p>')
+    : '<div class="person-row"><div><div class="person-name">' + me + '</div><div class="person-sub">Booking contact</div></div></div>';
+  extraPeople.forEach((p, i) => {
+    const sub = isKids ? (p.dob ? 'Born ' + esc(fmtDay(p.dob, { month: 'short', day: 'numeric', year: 'numeric' })) : '') : [p.phone, p.email].filter(Boolean).map(esc).join(' · ');
+    html += '<div class="person-row"><div><div class="person-name">' + esc(p.first + ' ' + p.last) + '</div>' +
+      (sub ? '<div class="person-sub">' + sub + '</div>' : '') + '</div>' +
+      '<div class="person-actions"><button type="button" onclick="openPersonModal(' + i + ')">Edit</button><button type="button" onclick="removePerson(' + i + ')">Remove</button></div></div>';
+  });
+  document.getElementById('people-list').innerHTML = html;
+}
+function openPersonModal(idx) {
+  editingIdx = (typeof idx === 'number') ? idx : null;
+  const p = editingIdx != null ? extraPeople[editingIdx] : { first: '', last: isKids ? (document.getElementById('c-last').value.trim() || (extraPeople[extraPeople.length - 1] || {}).last || '') : '', phone: '', email: '', dob: '' };
+  document.getElementById('person-popup-title').textContent = isKids ? (editingIdx != null ? 'Edit child' : 'Add a child') : (editingIdx != null ? 'Edit person' : 'Add a person');
+  document.getElementById('p-dob').value = p.dob || '';
+  document.getElementById('p-first').value = p.first;
+  document.getElementById('p-last').value = p.last;
+  document.getElementById('p-email').value = p.email || '';
+  document.getElementById('p-phone-country').value = '+1';
+  document.getElementById('p-phone').value = '';
+  if (p.phone) splitPhone(p.phone, 'p-phone-country', 'p-phone');
+  document.getElementById('person-error').style.display = 'none';
+  openModal('person-popup');
+  setTimeout(() => document.getElementById('p-first').focus(), 50);
+}
+function savePerson() {
+  const err = document.getElementById('person-error');
+  const first = document.getElementById('p-first').value.trim();
+  const last = document.getElementById('p-last').value.trim();
+  const email = document.getElementById('p-email').value.trim();
+  const phoneRaw = document.getElementById('p-phone').value.trim();
+  const showErr = m => { err.textContent = m; err.style.display = 'block'; };
+  if (!first || !last) return showErr('Please enter a first and last name.');
+  let person;
+  if (isKids) {
+    const dob = document.getElementById('p-dob').value;
+    if (!dob || dob >= todayStr()) return showErr('Please enter the child\'s date of birth.');
+    person = { first, last, dob, child: true };
+  } else {
+    if (phoneRaw && !isValidPhone('p-phone-country', 'p-phone')) return showErr('Please enter a complete, valid phone number, or leave it blank.');
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) return showErr('Please check the email address, or leave it blank.');
+    person = { first, last, phone: phoneRaw ? getFullPhone('p-phone-country', 'p-phone') : '', email };
+  }
+  if (editingIdx != null) extraPeople[editingIdx] = person; else extraPeople.push(person);
+  closeModal('person-popup');
+  renderPeople();
+  recalc();
+}
+function removePerson(i) { extraPeople.splice(i, 1); renderPeople(); recalc(); }
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ---- Price box ----
+function recalc() {
+  const sel = selectedSessions();
+  const body = document.getElementById('pricing-body');
+  if (!sel.length) { body.innerHTML = '<p class="price-empty">Pick at least one date above to see pricing.</p>'; return; }
+  if (!peopleCount()) { body.innerHTML = '<p class="price-empty">Add at least one child to see pricing.</p>'; return; }
+  const q = computeQuote(sel, peopleCount());
+  let html = '';
+  if (q.friend_applied) html += '<div class="earlybird-flag">👯 Bring-a-friend discount applied</div> ';
+  if (q.first_class_applied) html += '<div class="earlybird-flag">🎉 Opening-class discount applied</div>';
+  const who = q.people === 1 ? '' : ' × ' + q.people + (isKids ? ' children' : ' people');
+  html += '<div class="price-row"><span>' + packageLabel(q.class_count) + ' (' + money0(q.price_per_person) + (isKids ? ' each child)' : ' each person)') + who + '</span><span class="price-val">' + money(q.full) + '</span></div>';
+  if (q.friend_applied) html += '<div class="price-row discount"><span>Bring-a-friend (−' + money0(q.friend_amount) + ' × ' + q.people + ')</span><span>−' + money(q.friend_amount * q.people) + '</span></div>';
+  if (q.first_class_applied) html += '<div class="price-row discount"><span>Opening class ' + fmtDay(q.first_class_date, { month: 'short', day: 'numeric' }) + ' (−' + money0(q.first_class_amount) + ' × ' + q.people + ')</span><span>−' + money(q.first_class_amount * q.people) + '</span></div>';
+  html += '<hr class="price-divider">';
+  html += '<div class="price-row"><span>Subtotal</span><span class="price-val">' + money(q.subtotal) + '</span></div>';
+  html += '<div class="price-row"><span>Sales tax (' + fmtPct(q.tax_rate) + ')</span><span>' + money(q.tax) + '</span></div>';
+  html += '<div class="price-total"><span class="lbl">Total</span><span class="amt">' + money(q.total) + '</span></div>';
+  const busy = sel.filter(s => seatsOpen(s) < q.people);
+  if (busy.length) {
+    html += '<p class="try-one">' + busy.map(s => fmtDay(s.date, { month: 'short', day: 'numeric' })).join(', ') + (busy.length > 1 ? ' are' : ' is') + " almost full — you may be placed on the waitlist for " + (busy.length > 1 ? 'those dates' : 'that date') + ". We'll let you know when we confirm.</p>";
+  }
+  if (q.class_count === 1) {
+    html += '<p class="try-one">Not sure yet? Start with one. If you decide to continue, what you paid counts toward a package.</p>';
+  }
+  body.innerHTML = html;
+}
+
+// ---- Shared phone-field helpers — see claude/style-guide.md "Phone number fields" ----
+function formatPhone(input, countrySelectId) {
+  const country = document.getElementById(countrySelectId)?.value || '+1';
+  const isNorthAmerica = country === '+1' || country === '+1-CA';
+  if (!isNorthAmerica) return;
+  const digits = input.value.replace(/\D/g,'').slice(0,10);
+  let formatted = digits;
+  if (digits.length > 6)      formatted = digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
+  else if (digits.length > 3) formatted = digits.slice(0,3) + '-' + digits.slice(3);
+  input.value = formatted;
+}
+function getFullPhone(countrySelectId, phoneInputId) {
+  const country = document.getElementById(countrySelectId)?.value || '+1';
+  const code = country === '+1-CA' ? '+1' : country === '+other' ? '' : country;
+  const num = document.getElementById(phoneInputId).value.trim();
+  return code ? code + ' ' + num : num;
+}
+function isValidPhone(countrySelectId, phoneInputId) {
+  const country = document.getElementById(countrySelectId)?.value || '+1';
+  const isNorthAmerica = country === '+1' || country === '+1-CA';
+  const raw = (document.getElementById(phoneInputId).value || '').trim();
+  if (!raw) return false;
+  if (!isNorthAmerica) return raw.replace(/\D/g,'').length >= 7;
+  const digits = raw.replace(/\D/g,'');
+  return digits.length === 10 && digits[0] !== '0' && digits[0] !== '1' && digits[3] !== '0' && digits[3] !== '1';
+}
+function splitPhone(full, countrySelectId, phoneInputId) {
+  const sel = document.getElementById(countrySelectId);
+  const inp = document.getElementById(phoneInputId);
+  const m = String(full || '').trim().match(/^(\+\d+)\s+(.*)$/);
+  if (m && sel && [...sel.options].some(o => o.value === m[1])) { sel.value = m[1]; inp.value = m[2]; }
+  else if (full) { if (sel) sel.value = '+other'; inp.value = String(full).trim(); }
+}
+
+// ---- Submit ----
+function setError(msg) {
+  const el = document.getElementById('form-error');
+  if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.textContent = msg; el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+document.getElementById('wt-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  setError('');
+  const sel = selectedSessions();
+  const first = document.getElementById('c-first').value.trim();
+  const last = document.getElementById('c-last').value.trim();
+  const email = document.getElementById('c-email').value.trim();
+  const notifyEl = document.querySelector('input[name="notify"]:checked');
+  const comments = document.getElementById('c-comments').value.trim();
+  const people = peopleCount();
+
+  if (!classType) { setError('This class can\'t be booked right now.'); return; }
+  if (!sel.length) { setError('Please pick at least one date.'); return; }
+  if (isKids && !people) { setError('Please add at least one child.'); return; }
+  if (!first || !last) { setError('Please enter your first and last name.'); return; }
+  if (!isValidPhone('c-phone-country', 'c-phone')) { setError('Please enter a complete, valid phone number.'); return; }
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) { setError('Please enter a valid email address.'); return; }
+  const tooFull = sel.find(s => seatsLeft(s) < people);
+  if (tooFull) { setError('Only ' + seatsLeft(tooFull) + ' seat(s) left on ' + fmtDay(tooFull.date) + ' — please pick another date or call us at (310) 279-2466.'); return; }
+
+  const phone = getFullPhone('c-phone-country', 'c-phone');
+  const q = computeQuote(sel, people);
+  const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : null;
+  const utm = getUTM();
+  const payload = {
+    class_type: cfg.class_type,
+    class_type_id: classType.id,
+    branch_id: sel[0].branch_id || 'fb',
+    contact_first: first,
+    contact_last: last,
+    contact_phone: phone,
+    contact_email: email,
+    contact_notify: notifyEl ? notifyEl.value : 'Email',
+    comments: comments || null,
+    participants: isKids ? extraPeople.slice() : [{ first, last, phone, email, is_contact: true }].concat(extraPeople),
+    people_count: people,
+    class_ids: sel.map(s => s.id),
+    class_dates: sel.map(s => s.date),
+    class_count: sel.length,
+    quote: q,
+    amount_due: q.total,
+    status: 'pending',
+    source: 'website',
+    utm_source: utm.source,
+    utm_campaign: utm.campaign
+  };
+  if (id) payload.id = id;
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Insert only — the public can't read this table back, so never chain .select().
+    const { error } = await sb.from('pgl_wheel_bookings').insert([payload]);
+    if (error) throw error;
+    if (id) {
+      try {
+        await fetch(NOTIFY_FUNCTION, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+          body: JSON.stringify({ booking_id: id, type: 'new' })
+        });
+      } catch (_) { /* email is optional */ }
+    }
+    document.getElementById('success-msg').textContent =
+      "Thank you — we've got your request for " + cfg.class_type + ', ' + packageLabel(sel.length) + (people > 1 ? ' for ' + people + (isKids ? ' children' : ' people') : '') + '.';
+    document.getElementById('form-wrap').style.display = 'none';
+    document.getElementById('success-card').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Submit reservation request';
+    setError('Sorry, something went wrong submitting your request. Please try again, or call us at (310) 279-2466.');
+  }
+});
+</script>
+
+</body>
+</html>

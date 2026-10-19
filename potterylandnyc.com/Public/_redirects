@@ -1,1 +1,4 @@
 /sunday-clubs.html /sunday-club.html 301
+/wheel.html /classes/adult-wheel 301
+/wheel /classes/adult-wheel 301
+/classes/* /class 200

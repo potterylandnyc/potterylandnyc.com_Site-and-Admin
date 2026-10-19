@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<!-- v26.10.19-01 — classes list, built from table class_types (shared with the order app and admin) -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classes — Pottery & Glass Land</title>
+<meta name="description" content="Wheel throwing, hand building and more — classes for kids and adults at Pottery & Glass Land, Brooklyn.">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/registration.css">
+<link href="https://fonts.googleapis.com/css2?family=Unna:wght@400;700&family=Inter:wght@200;400;600&display=swap" rel="stylesheet">
+<style>
+  .cl-filters { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:0 0 22px; }
+  .cl-filter { padding:7px 16px; border-radius:20px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-primary); font:600 13px var(--font-body); cursor:pointer; text-decoration:none; }
+  .cl-filter.active { background:var(--color-primary); color:#fff; border-color:var(--color-primary); }
+  .cl-group-title { font-family:var(--font-heading); font-size:24px; color:var(--color-primary); margin:26px 0 12px; }
+  .cl-card { display:block; text-decoration:none; color:inherit; }
+  .cl-card:hover { border-color:var(--color-accent); }
+  .cl-eyebrow { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--color-accent); font-weight:600; margin-bottom:4px; }
+  .cl-meta { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:var(--color-text-muted); margin:10px 0 14px; }
+  .cl-desc { font-size:14px; line-height:1.6; }
+  .cl-btn { display:inline-block; margin-top:14px; font-weight:600; color:var(--color-accent); }
+  .cl-empty { text-align:center; color:var(--color-text-muted); padding:30px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo">Pottery &amp; Glass Land<span>Brooklyn's Creative Studio</span></a>
+    <a href="/" class="back-link">← Back to site</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <p class="hero-eyebrow">Reservation required</p>
+    <h1>Classes</h1>
+    <p class="hero-sub">Pick a class to see its dates and book. We'll reach out to confirm your spot.</p>
+  </div>
+</section>
+
+<main>
+  <div class="container">
+    <div class="cl-filters" id="cl-filters"></div>
+    <div id="cl-list"><p class="cl-empty">Loading classes…</p></div>
+  </div>
+</main>
+
+<footer>
+  <div>Pottery &amp; Glass Land · 1562 Coney Island Ave., Brooklyn · <a href="/">potterylandnyc.com</a></div>
+</footer>
+
+<script>
+const SUPABASE_URL = 'https://pehllmkuvrccfuvcskvj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_wHyJLfEuxJvIUeOAni_vyw_DGEcfHCM';
+const GROUP = (new URLSearchParams(location.search).get('group') || '').toLowerCase();
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function money0(n) { return '$' + (Number(n) % 1 ? Number(n).toFixed(2) : Number(n).toFixed(0)); }
+function fmtDay(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const list = document.getElementById('cl-list');
+  try {
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const [{ data: types }, { data: setRow }, { data: sessions }] = await Promise.all([
+      sb.from('class_types').select('*').eq('active', true).order('sort_order'),
+      sb.from('settings').select('value').eq('key', 'class_age_groups').maybeSingle(),
+      sb.from('pgl_classes').select('class_type_id,date').eq('active', true).gte('date', todayStr()).order('date')
+    ]);
+    const groups = (setRow && Array.isArray(setRow.value)) ? setRow.value : [];
+    const all = (types || []).filter(t => t.slug);
+    // Filter chips: All + one per age group that has classes
+    const used = groups.filter(g => all.some(t => t.age_group === g.label));
+    document.getElementById('cl-filters').innerHTML = used.length > 1
+      ? '<a class="cl-filter' + (!GROUP ? ' active' : '') + '" href="/classes">All classes</a>' +
+        used.map(g => '<a class="cl-filter' + (GROUP === g.label.toLowerCase() ? ' active' : '') + '" href="/classes?group=' + encodeURIComponent(g.label.toLowerCase()) + '">' + esc(g.label) + '</a>').join('')
+      : '';
+    const shownGroups = used.filter(g => !GROUP || g.label.toLowerCase() === GROUP);
+    const html = shownGroups.map(g => {
+      const items = all.filter(t => t.age_group === g.label);
+      return '<h2 class="cl-group-title">' + esc(g.label) + (g.ages ? ' <span style="font-size:15px;color:var(--color-text-muted);">· ages ' + esc(g.ages) + '</span>' : '') + '</h2>' +
+        items.map(t => {
+          const title = t.public_title || ((g.prefix || g.label) + ' ' + t.name);
+          const dates = (sessions || []).filter(s => s.class_type_id === t.id);
+          const pk = (t.packages || []).slice().sort((a, b) => a.classes - b.classes)[0];
+          const meta = [];
+          if (pk) meta.push('From ' + money0(pk.price) + (pk.classes > 1 ? ' for ' + pk.classes + ' classes' : '') + ' + tax');
+          meta.push(dates.length ? '🗓️ Next: ' + fmtDay(dates[0].date) + ' · ' + dates.length + ' upcoming date' + (dates.length > 1 ? 's' : '') : '🗓️ New dates coming soon');
+          if (t.schedule_note) meta.push(esc(t.schedule_note));
+          return '<a class="card cl-card" href="/classes/' + encodeURIComponent(t.slug) + '">' +
+            '<div class="cl-eyebrow">' + esc(g.label) + '</div><h3>' + esc(title) + '</h3>' +
+            '<div class="cl-meta">' + meta.map(m => '<span>' + m + '</span>').join('') + '</div>' +
+            (t.description ? '<div class="cl-desc">' + esc(t.description) + '</div>' : '') +
+            '<span class="cl-btn">' + (dates.length ? 'See dates & book →' : 'Learn more →') + '</span></a>';
+        }).join('');
+    }).join('');
+    list.innerHTML = html || '<p class="cl-empty">No classes right now — call or WhatsApp us at <a href="tel:+13102792466">(310) 279-2466</a>.</p>';
+  } catch (e) {
+    list.innerHTML = '<p class="cl-empty">Couldn\'t load classes. Please refresh, or call us at <a href="tel:+13102792466">(310) 279-2466</a>.</p>';
+  }
+});
+</script>
+
+</body>
+</html>

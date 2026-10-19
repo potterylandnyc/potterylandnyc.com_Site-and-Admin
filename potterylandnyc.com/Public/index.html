@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v26.10.19-01 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -452,6 +453,8 @@ function renderHours(hours, holidays) {
 async function loadSchedule() {
   const { data } = await sb.from('pgl_classes').select('*').gte('date', new Date().toISOString().split('T')[0]).eq('active', true).order('date').order('time');
   allClasses = data || [];
+  // Class types (shared with the order app + admin): each class row links to its booking page /classes/<slug>
+  try { const r = await sb.from('class_types').select('id,slug,description').eq('active', true); (r.data || []).forEach(t => classTypeById[t.id] = t); } catch (e) {}
   renderSchedule(allClasses);
 }
 
@@ -462,6 +465,7 @@ async function loadDiscountRules() {
   discountRules.multiperson = data.filter(r => r.type === 'multiperson');
 }
 
+const classTypeById = {};
 // Per-class descriptions. Add real text keyed by the EXACT class name; a
 // friendly placeholder is shown for any class not listed here.
 const CLASS_DESCRIPTIONS = {
@@ -481,7 +485,7 @@ function sessionSort(a, b) { return (a.date + 'T' + a.time).localeCompare(b.date
 function groupClasses(classes) {
   const map = new Map();
   classes.forEach(cls => {
-    if (!map.has(cls.name)) map.set(cls.name, { name: cls.name, age_group: cls.age_group, sessions: [] });
+    if (!map.has(cls.name)) map.set(cls.name, { name: cls.name, age_group: cls.age_group, class_type_id: cls.class_type_id, sessions: [] });
     map.get(cls.name).sessions.push(cls);
   });
   return Array.from(map.values());
@@ -528,8 +532,10 @@ function renderSchedule(classes) {
       </div>
       <div class="row-detail">
         <div class="row-detail-inner">
-          <div class="row-desc">${classDescription(g.name)}</div>
-          ${CLASS_PAGES[g.name]
+          <div class="row-desc">${(classTypeById[g.class_type_id] && classTypeById[g.class_type_id].description) || classDescription(g.name)}</div>
+          ${classTypeById[g.class_type_id] && classTypeById[g.class_type_id].slug
+            ? `<button class="row-action-btn" onclick="location.href='/classes/${classTypeById[g.class_type_id].slug}'">See dates & book →</button>`
+            : CLASS_PAGES[g.name]
             ? `<button class="row-action-btn" onclick="location.href='${CLASS_PAGES[g.name]}'">See dates & book →</button>`
             : `<button class="row-action-btn" onclick="openClassSchedule('${slug}')">See all dates & book →</button>`}
         </div>
