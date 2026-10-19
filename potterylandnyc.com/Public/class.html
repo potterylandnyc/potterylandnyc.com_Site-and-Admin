@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-01 — one booking page for every class: /classes/<slug> (see _redirects) -->
+<!-- v26.10.19-02 — one booking page for every class: /classes/<slug> (see _redirects) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -177,7 +177,7 @@
       <div class="form-group"><label>First name <span class="req">*</span></label><input type="text" id="p-first"></div>
       <div class="form-group"><label>Last name <span class="req">*</span></label><input type="text" id="p-last"></div>
     </div>
-    <div class="form-group" id="p-dob-wrap" style="display:none;"><label>Date of birth <span class="req">*</span></label><input type="date" id="p-dob"></div>
+    <div class="form-group" id="p-dob-wrap" style="display:none;"><label>Date of birth <span style="font-weight:400;color:var(--color-text-muted);">(optional)</span></label><input type="date" id="p-dob"></div>
     <div class="form-group" id="p-phone-wrap">
       <label>Phone</label>
       <div class="phone-row">
@@ -253,6 +253,7 @@ const FALLBACK_CFG = {
 };
 let classType = null;     // class_types row
 let isKids = false;       // kids form (age group child:true)
+let priceTable = {};      // seats (people × classes) → price, from database function class_price_table (same rule everywhere)
 
 let sb = null;
 let cfg = FALLBACK_CFG;
@@ -356,6 +357,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       first_class_promo_amount: Number(ct.intro_promo_amount) || 0,
       first_class_promo_dates: Array.isArray(ct.intro_promo_dates) ? ct.intro_promo_dates : []
     });
+    const { data: pt } = await sb.rpc('class_price_table', { p_class_type_id: ct.id });
+    priceTable = pt || {};
     applyClassText(title, g);
     const { data: cls } = await sb.from('pgl_classes').select('id,date,time,duration,total_spots,spots_remaining,spots_pending,branch_id')
       .eq('class_type_id', ct.id).eq('active', true).gte('date', todayStr()).order('date').order('time');
@@ -402,20 +405,23 @@ function firstClassPromoLive() {
 }
 function friendPromoLive() { return !!cfg.friend_promo_on; }
 
+// Combined pricing: people × classes count together toward a package (3 people × 1 class = the 3-class price).
+function seatPrice(seats) { const v = priceTable[String(seats)]; return v != null ? Number(v) : 0; }
 function computeQuote(selected, people) {
   const n = selected.length;
-  const per = pricePerPerson(n);
+  const full = seatPrice(n * people);
+  const per = people ? Math.round(full / people * 100) / 100 : 0;
   const friendAmt = (friendPromoLive() && people >= 2) ? Number(cfg.friend_promo_amount) || 0 : 0;
   const promoHit = selected.map(s => s.date).filter(isPromoDate).sort()[0] || null;
   const firstAmt = promoHit ? Number(cfg.first_class_promo_amount) || 0 : 0;
-  const perAfter = Math.max(0, per - friendAmt - firstAmt);
-  const subtotal = perAfter * people;
+  const subtotal = Math.max(0, Math.round((full - (friendAmt + firstAmt) * people) * 100) / 100);
+  const perAfter = people ? Math.round(subtotal / people * 100) / 100 : 0;
   const rate = Number(cfg.tax_rate) || 0;
   const tax = Math.round(subtotal * rate * 100) / 100;
   const total = Math.round((subtotal + tax) * 100) / 100;
   return {
     class_count: n, people: people,
-    price_per_person: per, full: per * people,
+    price_per_person: per, full: full, seats: n * people,
     friend_amount: friendAmt, friend_applied: friendAmt > 0,
     first_class_amount: firstAmt, first_class_applied: firstAmt > 0,
     first_class_date: firstAmt > 0 ? promoHit : null,
@@ -514,8 +520,8 @@ function savePerson() {
   let person;
   if (isKids) {
     const dob = document.getElementById('p-dob').value;
-    if (!dob || dob >= todayStr()) return showErr('Please enter the child\'s date of birth.');
-    person = { first, last, dob, child: true };
+    if (dob && dob >= todayStr()) return showErr('Please check the date of birth, or leave it blank.');
+    person = { first, last, dob: dob || '', child: true };
   } else {
     if (phoneRaw && !isValidPhone('p-phone-country', 'p-phone')) return showErr('Please enter a complete, valid phone number, or leave it blank.');
     if (email && !/^\S+@\S+\.\S+$/.test(email)) return showErr('Please check the email address, or leave it blank.');
@@ -542,7 +548,8 @@ function recalc() {
   if (q.friend_applied) html += '<div class="earlybird-flag">👯 Bring-a-friend discount applied</div> ';
   if (q.first_class_applied) html += '<div class="earlybird-flag">🎉 Opening-class discount applied</div>';
   const who = q.people === 1 ? '' : ' × ' + q.people + (isKids ? ' children' : ' people');
-  html += '<div class="price-row"><span>' + packageLabel(q.class_count) + ' (' + money0(q.price_per_person) + (isKids ? ' each child)' : ' each person)') + who + '</span><span class="price-val">' + money(q.full) + '</span></div>';
+  const pkHit = packagesSorted().find(p => p.classes === q.seats && p.classes > 1);
+  html += '<div class="price-row"><span>' + packageLabel(q.class_count) + who + (pkHit ? ' (' + pkHit.classes + '-class package)' : '') + '</span><span class="price-val">' + money(q.full) + '</span></div>';
   if (q.friend_applied) html += '<div class="price-row discount"><span>Bring-a-friend (−' + money0(q.friend_amount) + ' × ' + q.people + ')</span><span>−' + money(q.friend_amount * q.people) + '</span></div>';
   if (q.first_class_applied) html += '<div class="price-row discount"><span>Opening class ' + fmtDay(q.first_class_date, { month: 'short', day: 'numeric' }) + ' (−' + money0(q.first_class_amount) + ' × ' + q.people + ')</span><span>−' + money(q.first_class_amount * q.people) + '</span></div>';
   html += '<hr class="price-divider">';

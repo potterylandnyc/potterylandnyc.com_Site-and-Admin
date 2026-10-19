@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-04 -->
+<!-- v26.10.19-05 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2311,6 +2311,7 @@ var WT_SETTINGS_KEY = 'website_wheel_adult';
 var WT_CLASS_SLUG = 'adult-wheel';
 try { WT_CLASS_SLUG = localStorage.getItem('pgl_wt_class') || WT_CLASS_SLUG; } catch(e){}
 var wtClassType = null, wtTypes = [], wtIsKids = false, wtClassName = '';
+var wtPriceTable = {};   // seats (people × classes) → price, from database function class_price_table (same rule as website + order app)
 function wtSetClass(slug){ WT_CLASS_SLUG = slug; try { localStorage.setItem('pgl_wt_class', slug); } catch(e){} wtOpen = {}; loadWheel(); }
 function wtApplyClassType(){
   return; // promos/prices are now built from the class type in loadWheel
@@ -2389,9 +2390,10 @@ function wtPromoDates(){
   return wtCfg.first_class_promo_date ? [wtCfg.first_class_promo_date] : [];
 }
 // opts.friend / opts.firstClass: true/false to force a promo on/off (staff choice), undefined = automatic.
+// Combined pricing: people × classes count together toward a package (3 people × 1 class = the 3-class price).
 function wtComputeQuote(dates, people, opts){
   opts = opts || {};
-  var n = dates.length, per = wtPricePerPerson(n);
+  var n = dates.length, full = Number(wtPriceTable[String(n*people)]) || 0, per = people ? Math.round(full/people*100)/100 : 0;
   var friendAuto = !!(wtCfg && wtCfg.friend_promo_on) && people>=2;
   var pDates = wtPromoDates();
   var fcDate = dates.filter(function(d){ return pDates.indexOf(d)>-1; }).sort()[0] || null;
@@ -2400,11 +2402,11 @@ function wtComputeQuote(dates, people, opts){
   var firstOn = opts.firstClass===undefined ? firstAuto : (opts.firstClass && !!fcDate);
   var friendAmt = friendOn ? Number(wtCfg.friend_promo_amount)||0 : 0;
   var firstAmt = firstOn ? Number(wtCfg.first_class_promo_amount)||0 : 0;
-  var perAfter = Math.max(0, per-friendAmt-firstAmt);
-  var subtotal = perAfter*people;
+  var subtotal = Math.max(0, Math.round((full-(friendAmt+firstAmt)*people)*100)/100);
+  var perAfter = people ? Math.round(subtotal/people*100)/100 : 0;
   var rate = Number(wtCfg && wtCfg.tax_rate)||0;
   var tax = Math.round(subtotal*rate*100)/100;
-  return { class_count:n, people:people, price_per_person:per, full:per*people,
+  return { class_count:n, people:people, price_per_person:per, full:full, seats:n*people,
     friend_amount:friendAmt, friend_applied:friendAmt>0, first_class_amount:firstAmt, first_class_applied:firstAmt>0,
     first_class_date: firstAmt>0 ? fcDate : null, per_person_after:perAfter,
     subtotal:subtotal, tax_rate:rate, tax:tax, total:Math.round((subtotal+tax)*100)/100, packages: wtCfg && wtCfg.packages };
@@ -2420,6 +2422,8 @@ async function loadWheel(){
   var rct = await sbClient.from('class_types').select('*').order('sort_order');
   wtTypes = rct.data || [];
   wtClassType = wtTypes.find(function(t){ return t.slug === WT_CLASS_SLUG; }) || wtTypes.find(function(t){ return t.active !== false; }) || null;
+  var rpt = wtClassType ? await sbClient.rpc('class_price_table', { p_class_type_id: wtClassType.id }) : { data: {} };
+  wtPriceTable = rpt.data || {};
   var rset = await sbClient.from('settings').select('key,value').in('key', ['class_age_groups','tax_rate']);
   var wset = {}; (rset.data||[]).forEach(function(x){ wset[x.key] = x.value; });
   var wgroups = Array.isArray(wset.class_age_groups) ? wset.class_age_groups : [];
@@ -2782,7 +2786,7 @@ function wtModalDates(){ return Array.prototype.map.call(document.querySelectorA
 function wtPromoOpt(id){ var v=document.getElementById(id).value; return v==='auto'?undefined:(v==='on'); }
 function wtModalQuote(){
   var d = wtModalDates().map(function(x){ return x.date; });
-  return wtComputeQuote(d, 1+wtEditPeople.length, { friend: wtPromoOpt('wt-m-friend'), firstClass: wtPromoOpt('wt-m-first-promo') });
+  return wtComputeQuote(d, wtIsKids ? Math.max(1, wtEditPeople.length) : 1+wtEditPeople.length, { friend: wtPromoOpt('wt-m-friend'), firstClass: wtPromoOpt('wt-m-first-promo') });
 }
 function wtModalRecalc(){
   var q = wtModalQuote(), el = document.getElementById('wt-m-price');
