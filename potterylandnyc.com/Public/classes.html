@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-01 — classes list, built from table class_types (shared with the order app and admin) -->
+<!-- v26.10.19-02 — classes list, built from table class_types (shared with the order app and admin) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -56,6 +56,8 @@
 const SUPABASE_URL = 'https://pehllmkuvrccfuvcskvj.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wHyJLfEuxJvIUeOAni_vyw_DGEcfHCM';
 const GROUP = (new URLSearchParams(location.search).get('group') || '').toLowerCase();
+const CATEGORY = (new URLSearchParams(location.search).get('category') || '').toLowerCase(); // e.g. ?category=clay (class_types.category)
+const catQs = CATEGORY ? '&category=' + encodeURIComponent(CATEGORY) : '';
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -72,12 +74,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       sb.from('pgl_classes').select('class_type_id,date').eq('active', true).gte('date', todayStr()).order('date')
     ]);
     const groups = (setRow && Array.isArray(setRow.value)) ? setRow.value : [];
-    const all = (types || []).filter(t => t.slug);
+    const all = (types || []).filter(t => t.slug && (!CATEGORY || String(t.category || '').toLowerCase() === CATEGORY));
     // Filter chips: All + one per age group that has classes
     const used = groups.filter(g => all.some(t => t.age_group === g.label));
     document.getElementById('cl-filters').innerHTML = used.length > 1
-      ? '<a class="cl-filter' + (!GROUP ? ' active' : '') + '" href="/classes">All classes</a>' +
-        used.map(g => '<a class="cl-filter' + (GROUP === g.label.toLowerCase() ? ' active' : '') + '" href="/classes?group=' + encodeURIComponent(g.label.toLowerCase()) + '">' + esc(g.label) + '</a>').join('')
+      ? '<a class="cl-filter' + (!GROUP ? ' active' : '') + '" href="/classes' + (catQs ? '?' + catQs.slice(1) : '') + '">All classes</a>' +
+        used.map(g => '<a class="cl-filter' + (GROUP === g.label.toLowerCase() ? ' active' : '') + '" href="/classes?group=' + encodeURIComponent(g.label.toLowerCase()) + catQs + '">' + esc(g.label) + '</a>').join('')
       : '';
     const shownGroups = used.filter(g => !GROUP || g.label.toLowerCase() === GROUP);
     const html = shownGroups.map(g => {

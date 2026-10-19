@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-06 -->
+<!-- v26.10.19-07 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -505,7 +505,7 @@ tr:hover td { background: var(--bg); }
     <!-- PRICING -->
     <div class="tab-panel" id="tab-pricing">
       <div id="alert-pricing" class="alert"></div>
-      <div class="info-box">Class types and prices — the same list as the order app (Settings → Classes); a change in either place shows in both. Packages: a count between packages uses the per-class rate of the package below (e.g. 4 classes with 1 / 3 packages = the 3-class rate × 4). Turn a class off instead of deleting it.</div>
+      <div class="info-box">Class types and prices — the same list as the order app (Settings → Classes); a change in either place shows in both. Pricing counts people × classes together (3 people × 1 class = the 3-class package); a count between packages uses the per-class rate of the package below. Age groups and the category list are set in the order app → Settings → Classes. Turn a class off instead of deleting it.</div>
       <div id="ct-editor"></div>
       <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
         <button class="btn btn-ghost" onclick="ctAdminAdd()">+ Add class type</button>
@@ -802,12 +802,14 @@ function updateRecurPreview() {
 // --- CLASSES ---
 // Class types (table class_types, shared with the order app's Settings → Classes). Each scheduled date
 // stores class_type_id; its name is the class's display name (age-group word + class, e.g. "Kids Wheel Throwing").
-var adminClassTypes = [], adminAgeGroups = [];
+var adminClassTypes = [], adminAgeGroups = [], adminCategories = [];
 async function loadAdminClassTypes() {
   var r = await sbClient.from('class_types').select('*').order('sort_order');
   var g = await sbClient.from('settings').select('value').eq('key', 'class_age_groups').maybeSingle();
   adminClassTypes = r.data || [];
   adminAgeGroups = (g.data && Array.isArray(g.data.value)) ? g.data.value : [];
+  var gc = await sbClient.from('settings').select('value').eq('key', 'class_categories').maybeSingle();
+  adminCategories = (gc.data && Array.isArray(gc.data.value)) ? gc.data.value : [];
   fillClassTypeSelects();
   ctAdminDraft = adminClassTypes.map(function(t){ return Object.assign({}, t, { packages: (t.packages||[]).map(function(p){ return Object.assign({}, p); }) }); });
   ctAdminRender();
@@ -835,6 +837,8 @@ function ctAdminRender(){
         '<div class="form-group"><label>Class *</label><input type="text" placeholder="e.g. Wheel Throwing" value="'+scEsc(c.name||'')+'" oninput="ctAdminDraft['+i+'].name=this.value"></div>' +
         '<div class="form-group"><label>Age group *</label><select onchange="ctAdminDraft['+i+'].age_group=this.value;ctAdminRender()"><option value="">Choose…</option>' +
           opts.map(function(o){ return '<option'+(o===c.age_group?' selected':'')+'>'+scEsc(o)+'</option>'; }).join('') + '</select></div>' +
+        '<div class="form-group"><label>Category</label><select onchange="ctAdminDraft['+i+'].category=this.value"><option value="">—</option>' +
+          adminCategories.concat(c.category && adminCategories.indexOf(c.category) < 0 ? [c.category] : []).map(function(o){ return '<option'+(o===c.category?' selected':'')+'>'+scEsc(o)+'</option>'; }).join('') + '</select></div>' +
         '<div class="form-group"><label>Public title (optional)</label><input type="text" placeholder="'+scEsc(shown)+'" value="'+scEsc(c.public_title||'')+'" oninput="ctAdminDraft['+i+'].public_title=this.value"></div>' +
         '<div class="form-group"><label>Web name (link)</label><input type="text" placeholder="e.g. kids-wheel" value="'+scEsc(c.slug||'')+'" oninput="ctAdminDraft['+i+'].slug=this.value"></div>' +
         '<div class="form-group"><label>Bring-a-friend ($ off each)</label><input type="number" min="0" step="0.01" value="'+ctAdminMoney(c.friend_discount)+'" oninput="ctAdminDraft['+i+'].friend_discount=this.value"></div>' +
@@ -871,6 +875,7 @@ async function ctAdminSave(btn){
       friend_discount:num(c.friend_discount)||0, pieces_included:Math.max(0, parseInt(c.pieces_included,10)||0),
       paint_first_price:num(c.paint_first_price), paint_additional_price:num(c.paint_additional_price),
       description:String(c.description||'').trim() || null, schedule_note:String(c.schedule_note||'').trim() || null,
+      category:String(c.category||'').trim() || null,
       friend_promo_on:!!c.friend_promo_on, intro_promo_on:!!c.intro_promo_on, intro_promo_amount:num(c.intro_promo_amount)||0,
       intro_promo_dates: c.intro_promo_dates_text != null ? String(c.intro_promo_dates_text).split(/[\s,]+/).filter(Boolean) : (c.intro_promo_dates||[]),
       active:c.active!==false, sort_order:i+1, updated_at:new Date().toISOString() };
