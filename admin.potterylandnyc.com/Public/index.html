@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-05 -->
+<!-- v26.10.19-06 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -550,7 +550,7 @@ tr:hover td { background: var(--bg); }
         <div class="card-title">
           <span id="wt-tab-title">Class bookings</span>
           <span style="display:flex;gap:8px;">
-            <button class="btn btn-primary btn-sm" onclick="wtOpenModal()">+ Add booking</button>
+            <button class="btn btn-primary btn-sm" id="wt-add-btn" onclick="wtOpenModal()">+ Add booking</button>
             <button class="btn btn-ghost btn-sm" onclick="loadWheel()">Refresh</button>
           </span>
         </div>
@@ -2312,7 +2312,20 @@ var WT_CLASS_SLUG = 'adult-wheel';
 try { WT_CLASS_SLUG = localStorage.getItem('pgl_wt_class') || WT_CLASS_SLUG; } catch(e){}
 var wtClassType = null, wtTypes = [], wtIsKids = false, wtClassName = '';
 var wtPriceTable = {};   // seats (people × classes) → price, from database function class_price_table (same rule as website + order app)
-function wtSetClass(slug){ WT_CLASS_SLUG = slug; try { localStorage.setItem('pgl_wt_class', slug); } catch(e){} wtOpen = {}; loadWheel(); }
+// 'all' = every class together (view + payments/status/notes; per-class actions jump to that booking's class).
+function wtSetClass(slug){ WT_CLASS_SLUG = slug; try { localStorage.setItem('pgl_wt_class', slug); } catch(e){} wtOpen = {}; return loadWheel(); }
+function wtIsAll(){ return WT_CLASS_SLUG === 'all'; }
+function wtSlugOf(b){
+  var t = b.class_type_id ? wtTypes.find(function(x){ return x.id === b.class_type_id; }) : wtTypes.find(function(x){ return ctDisplay(x).toLowerCase() === String(b.class_type||'').toLowerCase(); });
+  return t && t.slug;
+}
+async function wtJumpTo(id, action){
+  var b = wtFind(id); var slug = b && wtSlugOf(b);
+  if (!slug){ alert('This booking isn\'t linked to a class type.'); return; }
+  await wtSetClass(slug);
+  wtOpen[id] = true; renderWheel();
+  if (action === 'edit') wtOpenModal(id); else if (action === 'paint') wtAddPaint(id);
+}
 function wtApplyClassType(){
   return; // promos/prices are now built from the class type in loadWheel
   if (!wtClassType || !wtCfg) return;
@@ -2421,7 +2434,9 @@ async function loadWheel(){
   var body = document.getElementById('wheel-body');
   var rct = await sbClient.from('class_types').select('*').order('sort_order');
   wtTypes = rct.data || [];
-  wtClassType = wtTypes.find(function(t){ return t.slug === WT_CLASS_SLUG; }) || wtTypes.find(function(t){ return t.active !== false; }) || null;
+  wtClassType = wtIsAll() ? null : (wtTypes.find(function(t){ return t.slug === WT_CLASS_SLUG; }) || wtTypes.find(function(t){ return t.active !== false; }) || null);
+  if (!wtIsAll() && wtClassType) WT_CLASS_SLUG = wtClassType.slug;
+  var addBtn = document.getElementById('wt-add-btn'); if (addBtn) addBtn.style.display = wtIsAll() ? 'none' : '';
   var rpt = wtClassType ? await sbClient.rpc('class_price_table', { p_class_type_id: wtClassType.id }) : { data: {} };
   wtPriceTable = rpt.data || {};
   var rset = await sbClient.from('settings').select('key,value').in('key', ['class_age_groups','tax_rate']);
@@ -2430,11 +2445,12 @@ async function loadWheel(){
   var wg = wtClassType ? (wgroups.find(function(g){ return g.label === wtClassType.age_group; }) || null) : null;
   wtIsKids = !!(wg && wg.child);
   wtClassName = wtClassType ? ((wg ? (wg.prefix || wg.label) : (wtClassType.age_group||'')) + ' ' + wtClassType.name).trim() : WT_CLASS_TYPE;
-  var tt = document.getElementById('wt-tab-title'); if (tt) tt.textContent = 'Class bookings — ' + (wtClassType && wtClassType.public_title || wtClassName);
+  var tt = document.getElementById('wt-tab-title'); if (tt) tt.textContent = wtIsAll() ? 'Class bookings — all classes' : 'Class bookings — ' + (wtClassType && wtClassType.public_title || wtClassName);
   var r = await Promise.all([
     sbClient.from('pgl_wheel_bookings').select('*').order('created_at',{ascending:false}),
     sbClient.from('pgl_wheel_payments').select('*').order('created_at'),
-    (wtClassType ? sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('class_type_id', wtClassType.id) : sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('name', WT_CLASS_TYPE)).order('date').order('time'),
+    (wtIsAll() ? sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id,class_type_id,name').not('class_type_id','is',null)
+      : wtClassType ? sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('class_type_id', wtClassType.id) : sbClient.from('pgl_classes').select('id,date,time,total_spots,spots_remaining,spots_pending,active,branch_id').eq('name', WT_CLASS_TYPE)).order('date').order('time'),
     sbClient.from('settings').select('value').eq('key', WT_SETTINGS_KEY).maybeSingle()
   ]);
   if (r[0].error){ body.innerHTML = '<div class="empty"><p>Could not load wheel bookings: '+scEsc(r[0].error.message)+'</p></div>'; return; }
@@ -2508,9 +2524,7 @@ function renderWheel(){
     '<label><input type="checkbox" '+(wtCfg.first_class_promo_on?'checked':'')+' onchange="wtSetPromo(\'first_class_promo_on\', this.checked)"> Opening class '+wtPromoDates().map(function(d){ return wtFmtDay(d); }).join(' / ')+' ('+scMoney(wtCfg.first_class_promo_amount||0)+' off)</label>' +
     '<span class="muted" style="font-size:12px;">Changes the public page right away. Existing bookings keep their price.</span></div>';
 
-  var picker = '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;">Class&nbsp;</label><select onchange="wtSetClass(this.value)" style="max-width:280px;">' +
-    wtTypes.filter(function(t){ return t.slug && (t.active !== false || t === wtClassType); }).map(function(t){ return '<option value="'+scEsc(t.slug)+'"'+(t===wtClassType?' selected':'')+'>'+scEsc(t.public_title || ctDisplay(t))+'</option>'; }).join('') + '</select></div>';
-  var controls = picker + '<div class="sc-controls"><div class="sc-seg">' +
+  var controls = '<div class="sc-controls"><div class="sc-seg">' +
       '<button class="'+(wtView==='bookings'?'active':'')+'" onclick="wtSetView(\'bookings\')">Bookings</button>' +
       '<button class="'+(wtView==='schedule'?'active':'')+'" onclick="wtSetView(\'schedule\')">Upcoming schedule</button>' +
     '</div>' +
@@ -2518,7 +2532,10 @@ function renderWheel(){
       [['active','Pending + confirmed'],['pending','Pending'],['confirmed','Confirmed'],['needs_info','Needs info'],['cancelled','Cancelled'],['all','All']].map(function(o){ return '<option value="'+o[0]+'"'+(wtStatusFilter===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('') +
     '</select>' : '') + '</div>';
 
-  body.innerHTML = summary + promo + controls + (wtView==='schedule' ? wtRenderSchedule() : wtRenderList());
+  var picker = '<div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;">Class&nbsp;</label><select onchange="wtSetClass(this.value)" style="max-width:280px;">' +
+    '<option value="all"'+(wtIsAll()?' selected':'')+'>All classes</option>' +
+    wtTypes.filter(function(t){ return t.slug && (t.active !== false || t === wtClassType); }).map(function(t){ return '<option value="'+scEsc(t.slug)+'"'+(t===wtClassType?' selected':'')+'>'+scEsc(t.public_title || ctDisplay(t))+'</option>'; }).join('') + '</select></div>';
+  body.innerHTML = picker + summary + (wtIsAll() ? '' : promo) + controls + (wtView==='schedule' ? wtRenderSchedule() : wtRenderList());
 }
 
 function wtRenderList(){
@@ -2542,6 +2559,7 @@ function wtCard(b){
 
   var head = '<div class="sc-reg-head" onclick="wtToggle(\''+b.id+'\')"><div class="sc-reg-main">' +
     '<div class="sc-reg-name">'+scEsc(name)+' '+wtStatusBadge(b.status)+
+      (wtIsAll()?' <span class="badge" style="background:#EAF1F4;color:#2E5A6B;">'+scEsc(b.class_type||'Class')+'</span>':'')+
       (b.ref_code?' <span class="badge" style="background:#EEF2F7;color:#33415C;font-family:ui-monospace,Menlo,Consolas,monospace;">'+scEsc(b.ref_code)+'</span>':'')+
       (wl.length?' <span class="badge" style="background:#FCEBEB;color:#A32D2D;">Waitlist — over 12 ('+wl.map(function(d){return wtFmtDay(d);}).join(', ')+')</span>':'')+
       (b.utm_source?' <span class="badge" style="background:#FFF6DB;color:#8A6D00;">via '+scEsc(b.utm_source)+'</span>':'')+
@@ -2554,8 +2572,11 @@ function wtCard(b){
     '<select class="sc-status-select" onchange="wtSetStatus(\''+b.id+'\',this.value,this)">' +
       ['needs_info','pending','confirmed','cancelled'].map(function(st){ return '<option value="'+st+'"'+(b.status===st?' selected':'')+'>'+({needs_info:'Needs info',pending:'Pending',confirmed:'Confirmed (arranging payment)',cancelled:'Cancelled'})[st]+'</option>'; }).join('') +
     '</select>' +
-    '<button class="btn btn-ghost btn-sm" onclick="wtOpenModal(\''+b.id+'\')">Edit dates / people</button>' +
-    '<button class="btn btn-ghost btn-sm" onclick="wtAddPaint(\''+b.id+'\')">+ '+scMoney(wtCfg.paint_addon_price||25)+' paint/refire</button>' +
+    (wtIsAll()
+      ? '<button class="btn btn-ghost btn-sm" onclick="wtJumpTo(\''+b.id+'\',\'edit\')">Edit dates / people</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="wtJumpTo(\''+b.id+'\',\'paint\')">+ paint/refire</button>'
+      : '<button class="btn btn-ghost btn-sm" onclick="wtOpenModal(\''+b.id+'\')">Edit dates / people</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="wtAddPaint(\''+b.id+'\')">+ '+scMoney(wtCfg.paint_addon_price||25)+' paint/refire</button>') +
     '<button class="btn btn-danger btn-sm sc-delete-btn" onclick="wtDelete(\''+b.id+'\')">Delete</button></div>';
 
   if (!wtOpen[b.id]) return '<div class="sc-reg" id="wt-'+b.id+'">'+head+actions+'</div>';
@@ -2621,7 +2642,7 @@ function wtRenderSchedule(){
         ' <span class="muted" style="font-size:12px;">'+scEsc(b.contact_phone||'')+'</span></div>';
     }).join('') || '<div class="muted" style="font-size:13px;">Nobody booked yet.</div>';
     return '<div class="sc-reg'+(open?' open':'')+'"><div class="sc-reg-head" onclick="wtSchedToggle(\''+c.id+'\')">' +
-      '<div class="sc-reg-main"><div class="sc-reg-name">'+wtFmtDay(c.date, true)+' <span class="muted" style="font-weight:400;font-size:13px;">'+wtFmtTime(c.time)+'</span></div>' +
+      '<div class="sc-reg-main"><div class="sc-reg-name">'+wtFmtDay(c.date, true)+' <span class="muted" style="font-weight:400;font-size:13px;">'+wtFmtTime(c.time)+'</span>'+(wtIsAll()?' <span class="badge" style="background:#EAF1F4;color:#2E5A6B;">'+scEsc(c.name||'')+'</span>':'')+'</div>' +
       '<div class="wt-bar"><span class="c" style="width:'+pct+'%"></span><span class="p" style="width:'+pctP+'%"></span></div></div>' +
       '<div class="sc-reg-money"><div class="bal'+(left<=0?' owed':'')+'">'+conf+' confirmed'+(pend?' + '+pend+' pending':'')+'</div>'+(left>0?left+' of '+cap+' seats left':'Full')+'</div></div>' +
       (open?'<div class="sc-detail" style="display:block;padding-top:12px;">'+names+'</div>':'') + '</div>';
