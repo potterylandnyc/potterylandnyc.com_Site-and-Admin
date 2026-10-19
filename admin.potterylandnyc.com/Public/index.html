@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v26.10.19-01 -->
+<!-- v26.10.19-02 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -305,12 +305,8 @@ tr:hover td { background: var(--bg); }
           <div class="form-grid">
             <div class="form-group">
               <label>Class Name *</label>
-              <select id="c-name" required>
+              <select id="c-name" required onchange="onClassTypePick('c-name','c-age')">
                 <option value="">Select class type</option>
-                <option>Kids Wheel Throwing</option>
-                <option>Kids Hand Building</option>
-                <option>Adult Wheel Throwing</option>
-                <option>Adult Hand Building</option>
               </select>
             </div>
             <div class="form-group">
@@ -776,7 +772,7 @@ window.addEventListener('hashchange', function(){
   else scMarkPendingTab();                                       // remember for after sign-in
 });
 
-function loadAll() { loadClasses(); loadSettings(); loadDiscounts(); loadPricing(); loadInquiries(); }
+function loadAll() { loadAdminClassTypes(); loadClasses(); loadSettings(); loadDiscounts(); loadPricing(); loadInquiries(); }
 
 // --- DATE MODE ---
 function setDateMode(mode) {
@@ -832,10 +828,45 @@ function updateRecurPreview() {
 }
 
 // --- CLASSES ---
+// Class types (table class_types, shared with the order app's Settings → Classes). Each scheduled date
+// stores class_type_id; its name is the class's display name (age-group word + class, e.g. "Kids Wheel Throwing").
+var adminClassTypes = [], adminAgeGroups = [];
+async function loadAdminClassTypes() {
+  var r = await sbClient.from('class_types').select('*').order('sort_order');
+  var g = await sbClient.from('settings').select('value').eq('key', 'class_age_groups').maybeSingle();
+  adminClassTypes = r.data || [];
+  adminAgeGroups = (g.data && Array.isArray(g.data.value)) ? g.data.value : [];
+  fillClassTypeSelects();
+}
+function ctAgeGroup(t) { return adminAgeGroups.find(function(x){ return x.label === t.age_group; }) || null; }
+function ctDisplay(t) { var g = ctAgeGroup(t); return ((g ? (g.prefix || g.label) : (t.age_group || '')) + ' ' + (t.name || '')).trim(); }
+function ctAgeLabel(t) { var g = ctAgeGroup(t); return g ? (g.label + (g.ages ? ' (' + g.ages + ')' : '')) : (t.age_group || ''); }
+function fillClassTypeSelects() {
+  ['c-name', 'edit-name'].forEach(function(id) {
+    var sel = document.getElementById(id); if (!sel) return;
+    var cur = sel.value;
+    var list = adminClassTypes.filter(function(t){ return t.active !== false || (id === 'edit-name' && t.id === cur); });
+    sel.innerHTML = (id === 'c-name' ? '<option value="">Select class type</option>' : '') +
+      list.map(function(t){ return '<option value="' + t.id + '">' + scEsc(ctDisplay(t)) + '</option>'; }).join('');
+    if (cur) sel.value = cur;
+  });
+}
+function onClassTypePick(selId, ageId) {
+  var t = adminClassTypes.find(function(x){ return x.id === document.getElementById(selId).value; });
+  if (!t) return;
+  var lbl = ctAgeLabel(t), age = document.getElementById(ageId);
+  if (!Array.prototype.some.call(age.options, function(o){ return o.value === lbl; })) age.add(new Option(lbl, lbl));
+  age.value = lbl;
+}
+function classTypeById(id) { return adminClassTypes.find(function(t){ return t.id === id; }) || null; }
+
 function saveClass(e) {
   e.preventDefault();
+  var ct = classTypeById(document.getElementById('c-name').value);
+  if (!ct) { showAlert('alert-class', 'Please choose a class type.', false); return; }
   var base = {
-    name: document.getElementById('c-name').value,
+    class_type_id: ct.id,
+    name: ctDisplay(ct),
     branch_id: document.getElementById('c-location').value,
     time: document.getElementById('c-time').value,
     duration: document.getElementById('c-duration').value,
@@ -1377,7 +1408,9 @@ function editClass(id) {
     if (res.error || !res.data) { alert('Could not load session.'); return; }
     var c = res.data;
     document.getElementById('edit-id').value = c.id;
-    document.getElementById('edit-name').value = c.name || '';
+    var ectId = c.class_type_id || ((adminClassTypes.find(function(t){ return ctDisplay(t).toLowerCase() === String(c.name || '').toLowerCase(); }) || {}).id) || '';
+    document.getElementById('edit-name').value = ectId;
+    if (document.getElementById('edit-name').value !== ectId) { fillClassTypeSelects(); document.getElementById('edit-name').value = ectId; }
     document.getElementById('edit-location').value = c.branch_id || 'fb';
     document.getElementById('edit-date').value = c.date || '';
     document.getElementById('edit-time').value = c.time || '';
@@ -1398,8 +1431,11 @@ function closeEditModal() {
 
 function saveEdit() {
   var id = document.getElementById('edit-id').value;
+  var ect = classTypeById(document.getElementById('edit-name').value);
+  if (!ect) { showAlert('alert-edit', 'Please choose a class type.', false); return; }
   var data = {
-    name: document.getElementById('edit-name').value,
+    class_type_id: ect.id,
+    name: ctDisplay(ect),
     branch_id: document.getElementById('edit-location').value,
     date: document.getElementById('edit-date').value,
     time: document.getElementById('edit-time').value,
@@ -3155,12 +3191,7 @@ document.addEventListener('click', function(e){
     <div class="form-grid">
       <div class="form-group">
         <label>Class Name</label>
-        <select id="edit-name">
-          <option>Kids Wheel Throwing</option>
-          <option>Kids Hand Building</option>
-          <option>Adult Wheel Throwing</option>
-          <option>Adult Hand Building</option>
-        </select>
+        <select id="edit-name" onchange="onClassTypePick('edit-name','edit-age')"></select>
       </div>
       <div class="form-group">
         <label>Location</label>
