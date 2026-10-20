@@ -12,3 +12,8 @@
 .cl-desc { font-size:14px; line-height:1.6; }
 .cl-btn { display:inline-block; margin-top:14px; font-weight:600; color:var(--color-accent); }
 .cl-empty { text-align:center; color:var(--color-text-muted); padding:30px 0; }
+
+/* Photo banner (option B: centered text over a darkened photo) */
+.classes-hero { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("images/classes-hero.jpg") center / cover no-repeat; color: #fff; padding: clamp(64px, 10vw, 130px) 20px; }
+.classes-hero .hero-eyebrow { color: #fff; opacity: 0.9; }
+.classes-hero h1, .classes-hero .hero-sub { text-shadow: 0 2px 12px rgba(0,0,0,0.35); }
