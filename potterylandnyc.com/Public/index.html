@@ -435,18 +435,57 @@ async function loadSiteData() {
   }
 }
 
+// Hours table + special days.
+// Special days (from Google, or typed in the admin) are { date:'YYYY-MM-DD', label?, hours? | closed/open/close }.
+// Only today-or-later dates are ever used, so a past holiday can never repeat.
+// Within the next 7 days, that weekday's row shows the special hours (highlighted);
+// the notice below lists every special day in the next 30 days.
+function localISO(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function specialHoursText(h) {
+  if (h.hours) return h.hours;
+  if (h.closed) return 'Closed';
+  return formatTime(h.open) + ' – ' + formatTime(h.close);
+}
 function renderHours(hours, holidays) {
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  const todayDate = new Date().toISOString().split('T')[0];
-  const holiday = holidays.find(h => h.date === todayDate);
+  const now = new Date();
+  const today = now.toLocaleDateString('en-US', { weekday: 'long' });
+  const todayISO = localISO(now);
+  const in7 = new Date(now); in7.setDate(now.getDate() + 6);
+  const in30 = new Date(now); in30.setDate(now.getDate() + 30);
+  const upcoming = (Array.isArray(holidays) ? holidays : [])
+    .filter(h => h && h.date && h.date >= todayISO && h.date <= localISO(in30))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  // weekday name -> special day within the next 7 days
+  const thisWeek = {};
+  upcoming.filter(h => h.date <= localISO(in7)).forEach(h => {
+    const wd = new Date(h.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+    if (!thisWeek[wd]) thisWeek[wd] = h;
+  });
+
   let html = '<table class="hours-table">';
   hours.forEach(h => {
     const isToday = h.day === today;
-    const timeStr = h.closed ? 'Closed' : formatTime(h.open) + ' – ' + formatTime(h.close);
-    html += `<tr${isToday ? ' class="today"' : ''}><td>${h.day}</td><td>${timeStr}</td></tr>`;
+    const sp = thisWeek[h.day];
+    const cls = [isToday ? 'today' : '', sp ? 'special' : ''].filter(Boolean).join(' ');
+    let timeStr = h.closed ? 'Closed' : formatTime(h.open) + ' – ' + formatTime(h.close);
+    if (sp) {
+      const dateLbl = new Date(sp.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      timeStr = `${escHtml(specialHoursText(sp))} <span class="hours-tag">${escHtml(sp.label || 'Special hours')} · ${dateLbl}</span>`;
+    }
+    html += `<tr${cls ? ` class="${cls}"` : ''}><td>${h.day}</td><td>${timeStr}</td></tr>`;
   });
   html += '</table>';
-  if (holiday) html += `<div class="holiday-notice">⚠️ Special hours today (${holiday.label}): ${holiday.hours}</div>`;
+  if (upcoming.length) {
+    html += '<div class="holiday-notice"><strong>Upcoming special hours</strong>' + upcoming.map(h => {
+      const d = new Date(h.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      return `<div>${d}${h.label ? ' (' + escHtml(h.label) + ')' : ''}: ${escHtml(specialHoursText(h))}</div>`;
+    }).join('') + '</div>';
+  }
   document.getElementById('info-hours').innerHTML = html;
 }
 

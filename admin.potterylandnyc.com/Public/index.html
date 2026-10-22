@@ -424,13 +424,14 @@ tr:hover td { background: var(--bg); }
       <div class="card">
         <div class="card-title">Studio Hours</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">These hours display on the public website.</p>
+        <div id="hours-google-status" style="display:none;"></div>
         <div id="hours-editor"></div>
       </div>
       <div class="card">
         <div class="card-title">Holiday / Special Hours</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Override hours for specific dates.</p>
         <div id="holiday-editor"></div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:12px;" onclick="addHolidayRow()">+ Add special date</button>
+        <button class="btn btn-ghost btn-sm" id="add-holiday-btn" style="margin-top:12px;" onclick="addHolidayRow()">+ Add special date</button>
       </div>
       <div class="card">
         <div class="card-title">Social &amp; Other</div>
@@ -1017,7 +1018,7 @@ function deleteClass(id) { if (!confirm('Delete this session?')) return; sbClien
 // --- SETTINGS ---
 function loadSettings() {
   if (!sbClient) return;
-  sbClient.from('settings').select('*').in('key', ['website_hours','website_holiday_hours','website_ch_visible','website_ch_note','website_instagram','website_tagline','website_firing_copy','inquiry_digest_enabled','inquiry_digest_time']).then(function(res) {
+  sbClient.from('settings').select('*').in('key', ['website_hours','website_holiday_hours','website_hours_source','website_hours_synced_at','website_hours_sync_error','website_ch_visible','website_ch_note','website_instagram','website_tagline','website_firing_copy','inquiry_digest_enabled','inquiry_digest_time']).then(function(res) {
     if (!res.data) return;
     var s = {};
     res.data.forEach(function(r) { s[r.key] = r.value; });
@@ -1029,6 +1030,9 @@ function loadSettings() {
     if (s.inquiry_digest_time) document.getElementById('s-digest-time').value = s.inquiry_digest_time;
     if (s.website_hours) { hoursData = s.website_hours; renderHoursEditor(); }
     if (s.website_holiday_hours) { holidayData = s.website_holiday_hours; renderHolidayEditor(); }
+    hoursFromGoogle = s.website_hours_source === 'google';
+    hoursSyncInfo = { at: s.website_hours_synced_at || '', error: s.website_hours_sync_error || '' };
+    renderGoogleHoursMode();
     if (s.website_firing_copy) {
       if (s.website_firing_copy.one_firing) document.getElementById('s-copy-1firing').value = s.website_firing_copy.one_firing;
       if (s.website_firing_copy.two_firings) document.getElementById('s-copy-2firings').value = s.website_firing_copy.two_firings;
@@ -1042,8 +1046,6 @@ function saveSettings() {
     { key: 'website_tagline', value: document.getElementById('s-tagline').value },
     { key: 'website_ch_visible', value: document.getElementById('s-ch-visible').checked },
     { key: 'website_ch_note', value: document.getElementById('s-ch-note').value },
-    { key: 'website_hours', value: hoursData },
-    { key: 'website_holiday_hours', value: holidayData },
     { key: 'inquiry_digest_enabled', value: document.getElementById('s-digest-enabled').checked },
     { key: 'inquiry_digest_time', value: document.getElementById('s-digest-time').value || '17:00' },
     { key: 'website_firing_copy', value: {
@@ -1051,6 +1053,11 @@ function saveSettings() {
       two_firings: document.getElementById('s-copy-2firings').value
     }}
   ];
+  // Once hours come from Google, the sync owns these two keys — never overwrite them from here.
+  if (!hoursFromGoogle) {
+    pairs.push({ key: 'website_hours', value: hoursData });
+    pairs.push({ key: 'website_holiday_hours', value: holidayData });
+  }
   var promises = pairs.map(function(p) { return sbClient.from('settings').upsert({ key: p.key, value: p.value }, { onConflict: 'key' }); });
   Promise.all(promises).then(function() { showAlert('alert-settings', 'Settings saved!', true); });
 }
@@ -1086,6 +1093,73 @@ function renderHolidayEditor() {
 }
 
 function addHolidayRow() { holidayData.push({ date: '', label: '', hours: '' }); renderHolidayEditor(); }
+
+// --- GOOGLE-SYNCED HOURS ---
+// The sync-google-hours function sets website_hours_source = 'google' on its first good sync.
+// Until then the editors above work as before. After that they become a read-only view.
+var hoursFromGoogle = false;
+var hoursSyncInfo = { at: '', error: '' };
+
+function escAdmin(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+}
+function fmtHM(t) {
+  if (!t) return '';
+  var p = t.split(':'); var h = parseInt(p[0], 10);
+  return ((h % 12) || 12) + ':' + p[1] + ' ' + (h >= 12 ? 'PM' : 'AM');
+}
+
+function renderGoogleHoursMode() {
+  var box = document.getElementById('hours-google-status');
+  var addBtn = document.getElementById('add-holiday-btn');
+  if (!hoursFromGoogle) { box.style.display = 'none'; addBtn.style.display = ''; return; }
+  addBtn.style.display = 'none';
+
+  var ageH = hoursSyncInfo.at ? (Date.now() - new Date(hoursSyncInfo.at).getTime()) / 3600000 : Infinity;
+  var stale = ageH > 48;
+  var when = hoursSyncInfo.at ? new Date(hoursSyncInfo.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never';
+  var warn = '';
+  if (stale || hoursSyncInfo.error) {
+    warn = '<div class="alert alert-error show" style="margin:10px 0 0;">⚠️ ' +
+      (stale ? 'Hours have not synced from Google in over 2 days — new special hours may be missing on the website. ' : '') +
+      (hoursSyncInfo.error ? 'Last error: ' + escAdmin(hoursSyncInfo.error) : '') + '</div>';
+  }
+  box.innerHTML = '<div class="info-box" style="margin-bottom:12px;">Synced from your Google Business Profile — edit hours and special hours on Google. ' +
+    'Last synced: <b>' + escAdmin(when) + '</b> ' +
+    '<button class="btn btn-ghost btn-sm" id="sync-now-btn" style="margin-left:8px;" onclick="syncHoursNow()">Sync now</button>' + warn + '</div>';
+  box.style.display = '';
+
+  document.getElementById('hours-editor').innerHTML = '<table><tbody>' + hoursData.map(function(h) {
+    return '<tr><td style="width:140px;">' + escAdmin(h.day) + '</td><td>' + (h.closed ? 'Closed' : fmtHM(h.open) + ' – ' + fmtHM(h.close)) + '</td></tr>';
+  }).join('') + '</tbody></table>';
+
+  var todayISO = new Date().toLocaleDateString('en-CA');
+  var upcoming = (holidayData || []).filter(function(h) { return h.date && h.date >= todayISO; });
+  document.getElementById('holiday-editor').innerHTML = upcoming.length ? '<table><tbody>' + upcoming.map(function(h) {
+    var d = new Date(h.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    var t = h.hours || (h.closed ? 'Closed' : fmtHM(h.open) + ' – ' + fmtHM(h.close));
+    return '<tr><td style="width:180px;">' + escAdmin(d) + '</td><td>' + escAdmin(t) + '</td></tr>';
+  }).join('') + '</tbody></table>' : '<p style="font-size:13px;color:var(--muted);padding:8px 0;">No upcoming special hours on Google.</p>';
+}
+
+async function syncHoursNow() {
+  var btn = document.getElementById('sync-now-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  try {
+    var sess = await sbClient.auth.getSession();
+    var token = sess.data && sess.data.session ? sess.data.session.access_token : '';
+    var res = await fetch(SB_URL + '/functions/v1/sync-google-hours', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ force: true })
+    });
+    var out = await res.json().catch(function() { return {}; });
+    showAlert('alert-settings', out.ok ? 'Hours synced from Google.' : ('Sync failed: ' + (out.error || res.status)), !!out.ok);
+  } catch (e) {
+    showAlert('alert-settings', 'Sync failed: ' + e, false);
+  }
+  loadSettings();
+}
 function removeHoliday(i) { holidayData.splice(i, 1); renderHolidayEditor(); }
 
 // --- DISCOUNTS ---

@@ -110,6 +110,9 @@ nav a:hover { color: var(--color-primary); }
 .hours-table td { padding: 3px 0; }
 .hours-table td:first-child { color: var(--color-text-muted); width: 110px; }
 .hours-table tr.today td { font-weight: 600; color: var(--color-primary); }
+.hours-table tr.special td { color: var(--color-accent); font-weight: 600; }
+.hours-table .hours-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #F6EBE4; color: var(--color-accent); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.holiday-notice strong { display: block; margin-bottom: 2px; }
 .holiday-notice { background: #FFF8E7; border: 1px solid #FAC775; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #633806; margin-top: 10px; }
 .contact-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
 .contact-actions a { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--radius); font-size: 14px; font-weight: 600; }
