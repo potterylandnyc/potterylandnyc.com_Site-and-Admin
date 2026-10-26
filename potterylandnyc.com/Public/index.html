@@ -164,6 +164,11 @@ async function loadSiteCopy() {
           <a href="tel:7189753130" class="call-btn" id="main-call-btn">📞 Call us — (718) 975-3130</a>
           <a href="https://wa.me/17189753130" target="_blank" class="whatsapp-btn">💬 WhatsApp us</a>
         </div>
+        <div class="map-embed">
+          <iframe id="info-map" data-q="Pottery and Glass Land, 1562 Coney Island Avenue, Brooklyn, NY 11230" title="Map to Pottery & Glass Land" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+            src="https://www.google.com/maps?q=Pottery+and+Glass+Land,+1562+Coney+Island+Avenue,+Brooklyn,+NY+11230&output=embed"></iframe>
+          <a id="info-directions" class="map-directions" href="https://maps.google.com/maps?cid=2567251820655572462" target="_blank" rel="noopener">Open in Google Maps →</a>
+        </div>
       </div>
       <div class="booking-form">
         <h3 id="form-title">Send us a message</h3>
@@ -403,11 +408,33 @@ async function loadSiteData() {
 
   // Pull website settings from settings table (shared with order app)
   const { data: settings } = await sb.from('settings').select('*')
-    .in('key', ['website_hours','website_holiday_hours','website_ch_visible','website_ch_note','website_instagram','website_tagline']);
+    .in('key', ['website_hours','website_holiday_hours','website_google_location','website_ch_visible','website_ch_note','website_instagram','website_tagline']);
 
   if (settings) {
     const s = {};
     settings.forEach(r => s[r.key] = r.value);
+
+    // Address / phone / map from the Google Business Profile (synced by sync-google-hours).
+    // Website only — the order app keeps using the branches table. Falls back to branches if missing.
+    const g = s.website_google_location;
+    if (g && g.address) {
+      ['info-address', 'footer-address'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = g.address; });
+      const map = document.getElementById('info-map');
+      if (map) {
+        const q = (g.name ? g.name + ', ' : '') + g.address;
+        if (q !== map.dataset.q) { map.dataset.q = q; map.src = 'https://www.google.com/maps?q=' + encodeURIComponent(q) + '&output=embed'; }
+      }
+      const dir = document.getElementById('info-directions');
+      if (dir && g.maps_uri) dir.href = g.maps_uri;
+    }
+    if (g && g.phone_digits && g.phone_digits.length === 10) {
+      const call = document.getElementById('main-call-btn');
+      if (call) { call.textContent = '📞 Call us — ' + g.phone; call.href = 'tel:' + g.phone_digits; }
+      const fp = document.getElementById('footer-phone');
+      if (fp) { fp.textContent = g.phone; fp.href = 'tel:' + g.phone_digits; }
+      const wa = document.querySelector('.whatsapp-btn');
+      if (wa) wa.href = 'https://wa.me/1' + g.phone_digits;
+    }
 
     const tag = document.getElementById('header-tagline');
     if (s.website_tagline && tag) tag.textContent = s.website_tagline;
