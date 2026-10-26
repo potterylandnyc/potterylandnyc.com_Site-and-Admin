@@ -61,7 +61,6 @@ Always `git pull` before starting on either PC.
 Wrong-PC safeguard: at chat start and before any file write, Claude checks which computer the chat is linked to, says "Linked to: <PC>", and asks which PC I'm at — stops if they don't match. Every write and every save command names the PC and path. `save.ps1` prints the computer name at the top.
 
 ## Writing files on the PC (Claude) — required
-Writes to the PC have silently landed an older draft ("deployed but nothing changed").
-- Write each finished file to a new, uniquely named file in the outputs folder (e.g. `index-v3.html`) and save to the PC from that. Never reuse a file name for a second version.
-- After every write, wait a few seconds, then check the PC file with a directory listing — size must match and the time must be new — before saying it's saved.
+- When writing a file to the PC, always send it under a new, unique file name (e.g. `index-v26.10.26-02.html`), never a name already used in this chat, because a reused name can write an older version.
+- After every write, wait a few seconds, check the file's size and time on the PC with a directory listing, and only then say it's saved.
 - `save.ps1` stops with "Nothing changed" if there's nothing to commit — if that happens, check the PC files first.
