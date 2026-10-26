@@ -382,20 +382,22 @@ async function loadSiteData() {
   if (branches) {
     const main = branches.find(b => b.is_main);
     const ch = branches.find(b => !b.is_main);
+    // setEl skips any element that isn't on the page, so one missing spot
+    // (e.g. after a layout change) can't stop the hours/settings below from loading.
+    const setEl = (id, text, href) => { const el = document.getElementById(id); if (!el) return; el.textContent = text; if (href) el.href = href; };
     if (main) {
-      document.getElementById('info-address').textContent = main.address;
-      document.getElementById('hero-main-address').textContent = main.address;
-      document.getElementById('footer-address').textContent = main.address;
+      setEl('info-address', main.address);
+      setEl('hero-main-address', main.address);
+      setEl('footer-address', main.address);
       const phoneClean = main.phone?.replace(/[^0-9]/g, '');
-      document.getElementById('main-call-btn').textContent = '📞 Call us — ' + main.phone;
-      document.getElementById('main-call-btn').href = 'tel:' + phoneClean;
-      document.querySelector('.whatsapp-btn').href = 'https://wa.me/1' + phoneClean;
-      document.getElementById('footer-phone').textContent = main.phone;
-      document.getElementById('footer-phone').href = 'tel:' + phoneClean;
+      setEl('main-call-btn', '📞 Call us — ' + main.phone, 'tel:' + phoneClean);
+      const wa = document.querySelector('.whatsapp-btn');
+      if (wa) wa.href = 'https://wa.me/1' + phoneClean;
+      setEl('footer-phone', main.phone, 'tel:' + phoneClean);
     }
     if (ch) {
-      document.getElementById('popup-address').textContent = ch.address;
-      document.getElementById('popup-phone').textContent = '📞 ' + ch.phone;
+      setEl('popup-address', ch.address);
+      setEl('popup-phone', '📞 ' + ch.phone);
     }
   }
 
@@ -407,16 +409,15 @@ async function loadSiteData() {
     const s = {};
     settings.forEach(r => s[r.key] = r.value);
 
-    if (s.website_tagline) document.getElementById('header-tagline').textContent = s.website_tagline;
+    const tag = document.getElementById('header-tagline');
+    if (s.website_tagline && tag) tag.textContent = s.website_tagline;
 
     if (s.website_instagram) {
       const handle = typeof s.website_instagram === 'string' ? s.website_instagram : s.website_instagram.toString();
       const el = document.getElementById('info-instagram');
       const footerEl = document.getElementById('footer-instagram');
-      el.textContent = '@' + handle;
-      el.href = 'https://www.instagram.com/' + handle + '/';
-      footerEl.textContent = '@' + handle;
-      footerEl.href = 'https://www.instagram.com/' + handle + '/';
+      if (el) { el.textContent = '@' + handle; el.href = 'https://www.instagram.com/' + handle + '/'; }
+      if (footerEl) { footerEl.textContent = '@' + handle; footerEl.href = 'https://www.instagram.com/' + handle + '/'; }
     }
 
     const hours = s.website_hours || DEFAULT_HOURS;
@@ -424,11 +425,14 @@ async function loadSiteData() {
     renderHours(hours, holidays);
 
     if (s.website_ch_visible === true || s.website_ch_visible === 'true') {
-      document.getElementById('popup-location-block').style.display = 'block';
-      if (s.website_ch_note) document.getElementById('popup-note').textContent = s.website_ch_note;
+      const block = document.getElementById('popup-location-block');
+      if (block) block.style.display = 'block';
+      const note = document.getElementById('popup-note');
+      if (s.website_ch_note && note) note.textContent = s.website_ch_note;
       const { data: branches } = await sb.from('branches_public').select('address').eq('id','ch').single();
-      if (branches) {
-        document.getElementById('hero-locations').innerHTML +=
+      const heroLocs = document.getElementById('hero-locations');
+      if (branches && heroLocs) {
+        heroLocs.innerHTML +=
           `<div class="hero-location">✨ Crown Heights Pop-Up — ${branches.address}</div>`;
       }
     }
