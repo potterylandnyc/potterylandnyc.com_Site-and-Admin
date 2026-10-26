@@ -1,4 +1,4 @@
-# v26.09.25-01
+# v26.10.26-01
 # Save (and deploy) in one go. Stops at the first error.
 #   .\save.ps1 "what I changed"            -> save to GitHub, then deploy
 #   .\save.ps1 "what I changed" -NoDeploy  -> save to GitHub only
@@ -7,6 +7,7 @@ param(
   [switch]$NoDeploy
 )
 Set-Location $PSScriptRoot
+Write-Host "Computer: $env:COMPUTERNAME   Folder: $PSScriptRoot" -ForegroundColor Magenta
 
 function Fail($msg) {
   Write-Host ""
@@ -23,7 +24,8 @@ if ($staged) {
   git commit -m $Message
   if ($LASTEXITCODE -ne 0) { Fail "git commit failed." }
 } else {
-  Write-Host "No new changes to commit." -ForegroundColor Yellow
+  # Nothing to save usually means an edit never reached this PC (e.g. Claude's write was overwritten).
+  Fail "Nothing changed - the files may not have been saved to this PC. Ask Claude to check. (To deploy without new changes, use .\deploy.ps1)"
 }
 
 Write-Host "Getting latest from GitHub..." -ForegroundColor Cyan
