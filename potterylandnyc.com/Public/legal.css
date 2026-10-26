@@ -1,0 +1,11 @@
+/* legal.css — shared by /privacy and /terms (shared bits live in styles.css / registration.css) */
+:root { --max-width: 760px; --container-padding: 20px; }
+
+.legal-body .legal-updated { font-size: 13px; color: var(--color-text-muted); margin-bottom: 24px; }
+.legal-body h2 { font-size: 22px; margin: 28px 0 8px; }
+.legal-body p, .legal-body li { font-size: 15px; color: var(--color-text); line-height: 1.65; }
+.legal-body p { margin-bottom: 12px; }
+.legal-body ul { margin: 0 0 12px 22px; }
+.legal-body li { margin-bottom: 6px; }
+.legal-body a { color: var(--color-accent); text-decoration: underline; }
+footer a { color: rgba(255,255,255,0.75); }

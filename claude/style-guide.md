@@ -106,3 +106,8 @@ Exception: a favicon as a tiny inline `data:image/svg+xml` is fine — that's a 
 5. Any phone field uses the standard country-select + `.phone-row` pattern and the three shared `formatPhone`/`getFullPhone`/`isValidPhone` functions (copy them in) — see "Phone number fields" above. Never a plain, unvalidated phone `<input>`.
 6. Any image goes in that page's `Public/images/` folder as a real file, referenced with a relative `src` — never inline base64.
 7. Before considering the page done: run both CSS checks above (duplicate rule, name collision) against every other page's CSS file, and ask "is anything I just wrote actually a generic pattern, not just this page's content?" — promote accordingly.
+
+## Legal pages (added 2026-10-26)
+- `/privacy` = `privacy.html`, `/terms` = `terms.html`. Both link `styles.css` → `registration.css` (shared header/hero/footer) → `legal.css` (prose styles shared by both). Absolute CSS paths, same as the class pages.
+- Linked from the homepage footer. Google's OAuth "Branding" page (Pottery Land Hours project, used for the Google hours sync) points at these URLs — don't move or rename them without updating it there.
+- If the site starts collecting new kinds of data (new form fields, analytics/ad pixels, online payments), update the privacy policy and its "Last updated" date.
