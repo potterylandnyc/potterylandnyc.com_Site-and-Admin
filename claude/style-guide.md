@@ -19,8 +19,8 @@ Two separate checks before finishing any change to a page's CSS:
 (Both checks are also in the project's custom instructions — this doc is the backstop.)
 
 ## Where the files live
-- `styles.css` - ONE file, at `potterylandnyc.com/Public/styles.css`. Edit it there. There are no copies and nothing is synced (changed 2026-09-25; the old root master + copy step in deploy.ps1 were removed).
-- `index.css`, `sunday-club.css` - each page's own file, also in `potterylandnyc.com/Public/`.
+- `styles.css` - ONE file, at `potterylandnyc.com/public/styles.css`. Edit it there. There are no copies and nothing is synced (changed 2026-09-25; the old root master + copy step in deploy.ps1 were removed).
+- `index.css`, `sunday-club.css` - each page's own file, also in `potterylandnyc.com/public/`.
 - The admin site uses the shared styles by linking the live file by URL: `<link rel="stylesheet" href="https://potterylandnyc.com/styles.css">`. A change to styles.css reaches the admin site as soon as the main site is deployed.
 
 ## What's in `styles.css`
@@ -92,7 +92,7 @@ A duplicate-CSS-rule check in `deploy.ps1` was discussed and deferred until ther
 `admin.potterylandnyc.com` still has its own separate design system (different variable names, system font). Plan (decided 2026-09-25): convert it to the shared styles over time. When converting, link `https://potterylandnyc.com/styles.css` (see "Where the files live") - never copy the file into the admin folder.
 
 ## Images
-Images are always real files, never inline base64 data URIs in the HTML. Each page's images live in that page's own `Public/images/` folder (e.g. `potterylandnyc.com/Public/images/activity-1.jpg`) and are referenced with a normal relative `src="images/activity-1.jpg"`.
+Images are always real files, never inline base64 data URIs in the HTML. Each page's images live in that page's own `public/images/` folder (e.g. `potterylandnyc.com/public/images/activity-1.jpg`) and are referenced with a normal relative `src="images/activity-1.jpg"`.
 
 **Why:** an embedded base64 image bloats the HTML file itself (found + fixed 2026-09-16: 5 embedded photos made `index.html` 591KB instead of 41KB), can't be cached by the browser separately from the page, and makes the HTML source unreadable. A real image file is cached independently, keeps the HTML readable, and costs nothing extra to deploy (Cloudflare only uploads files that actually changed, by content hash).
 
@@ -100,11 +100,11 @@ Exception: a favicon as a tiny inline `data:image/svg+xml` is fine — that's a 
 
 ## Starting a new page
 1. Copy an existing page's `<head>` boilerplate (doctype, meta tags, Supabase script tag if needed, the two stylesheet `<link>` tags) and rename the second link to the new page's own CSS file.
-2. Create that page's own CSS file in the same `Public/` folder; set `--max-width` (and `--container-padding` if not 24px) in a local `:root` block.
+2. Create that page's own CSS file in the same `public/` folder; set `--max-width` (and `--container-padding` if not 24px) in a local `:root` block.
 3. Build with plain semantic HTML where possible — `<h1>`–`<h4>`, `<button>`, `<input>`/`<select>`/`<textarea>`, `.container`, `.card`, `.section-label`/`.section-title`/`.section-body`, `.modal-overlay`/`.modal` already work with no page-specific CSS.
 4. Any dark/colored-background section gets `class="on-dark"` on its wrapper immediately.
 5. Any phone field uses the standard country-select + `.phone-row` pattern and the three shared `formatPhone`/`getFullPhone`/`isValidPhone` functions (copy them in) — see "Phone number fields" above. Never a plain, unvalidated phone `<input>`.
-6. Any image goes in that page's `Public/images/` folder as a real file, referenced with a relative `src` — never inline base64.
+6. Any image goes in that page's `public/images/` folder as a real file, referenced with a relative `src` — never inline base64.
 7. Before considering the page done: run both CSS checks above (duplicate rule, name collision) against every other page's CSS file, and ask "is anything I just wrote actually a generic pattern, not just this page's content?" — promote accordingly.
 
 ## Legal pages (added 2026-10-26)

@@ -62,6 +62,6 @@ Wrong-PC safeguard: at chat start and before any file write, Claude checks which
 
 ## Writing files on the PC (Claude) — required
 Writes to the PC have silently landed an older draft ("deployed but nothing changed").
-- Write each finished file to a new, uniquely named file in the outputs folder (e.g. `index-v3.html`) and save to the PC from that. Never reuse a file name for a second version, and never re-stage a file right before writing it.
+- Write each finished file to a new, uniquely named file in the outputs folder (e.g. `index-v3.html`) and save to the PC from that. Never reuse a file name for a second version.
 - After every write, wait a few seconds, then check the PC file with a directory listing — size must match and the time must be new — before saying it's saved.
 - `save.ps1` stops with "Nothing changed" if there's nothing to commit — if that happens, check the PC files first.
