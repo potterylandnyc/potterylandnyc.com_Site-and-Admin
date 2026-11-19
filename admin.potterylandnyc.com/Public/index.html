@@ -196,6 +196,10 @@ tr:hover td { background: var(--bg); }
 .inq-subject { font-weight:600; color:var(--primary); font-size:15px; }
 .inq-meta { font-size:12px; color:var(--muted); margin-top:2px; }
 .inq-caret { font-size:10px; color:var(--muted); }
+.inq-quick { display:flex; gap:4px; flex-wrap:wrap; }
+.inq-quick-btn { padding:4px 9px; border:1px solid var(--border); border-radius:100px; background:var(--surface); color:var(--primary); font-size:12px; font-weight:600; cursor:pointer; }
+.inq-quick-btn:hover { border-color:var(--primary); background:var(--bg); }
+@media (max-width:720px) { .inq-head { flex-wrap:wrap; } .inq-main { flex-basis:100%; } }
 .inq-overdue { font-size:11px; font-weight:700; color:#8A4A12; background:#FFF1E6; border-radius:100px; padding:3px 9px; white-space:nowrap; }
 .inq-st-new { background:#E6F1FB; color:#185FA5; }
 .inq-st-contacted { background:#FFF8E7; color:#8A6D00; }
@@ -1375,6 +1379,7 @@ function inqCard(q) {
         '<div class="inq-meta">' + scEsc(inqName(q)) + ' &middot; ' + scEsc(inqFmtDate(q.created_at)) + ' &middot; ' + inqAgo(q.created_at) + '</div>' +
       '</div>' +
       (overdue ? '<span class="inq-overdue">No reply 24h+</span>' : '') +
+      inqQuickButtons(q) +
       '<span class="badge ' + st.cls + '">' + st.label + '</span>' +
       '<span class="inq-caret">' + (open ? '&#9650;' : '&#9660;') + '</span>' +
     '</div>';
@@ -1464,6 +1469,20 @@ function inqUpdate(id, patch, logText) {
   });
 }
 
+// Quick status buttons on the collapsed row (no need to expand the inquiry).
+function inqQuickButtons(q) {
+  var cur = q.status || 'new';
+  if (cur === 'archived') return '';
+  var b = '';
+  if (cur !== 'contacted') b += '<button class="inq-quick-btn" title="Mark Contacted" onclick="inqQuick(event,\'' + q.id + '\',\'contacted\')">Contacted</button>';
+  if (cur !== 'booked') b += '<button class="inq-quick-btn" title="Mark Booked" onclick="inqQuick(event,\'' + q.id + '\',\'booked\')">Booked</button>';
+  b += '<button class="inq-quick-btn" title="Archive" onclick="inqQuick(event,\'' + q.id + '\',\'archived\')">Archive</button>';
+  return '<span class="inq-quick">' + b + '</span>';
+}
+function inqQuick(ev, id, status) {
+  ev.stopPropagation();
+  if (status === 'archived') inqArchive(id); else inqSetStatus(id, status);
+}
 function inqLogContact(id, method) {
   var q = inqFind(id); if (!q) return;
   var patch = {};

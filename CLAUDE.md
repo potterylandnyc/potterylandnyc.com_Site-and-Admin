@@ -20,6 +20,7 @@ Read this and claude/style-guide.md before doing anything. Keep answers short, i
   - `classes.html` + `classes.css` — class list
   - `sunday-club.html` + `sunday-club.css`
   - `privacy.html`, `terms.html` + `legal.css`
+  - `inquiry-update.html` + `inquiry-update.css` — staff-only page opened from the "Mark as" links in inquiry emails (signed 7-day link, no login, Confirm button; noindex)
   - `styles.css` (site-wide) and `registration.css` (shared by landing/registration pages)
   - `_redirects`, `_headers`, `contact-*.vcf` (WhatsApp "save our number" cards), `images/`
 - `admin.potterylandnyc.com/public/index.html` — the whole admin (markup, styles, JS).
@@ -28,7 +29,7 @@ Read this and claude/style-guide.md before doing anything. Keep answers short, i
 
 ## Main Supabase tables
 settings (website keys start `website_`), branches (+ public view `branches_public`), customers, class_types, staff_allowlist, pgl_classes, pgl_pricing, pgl_discounts, pgl_inquiries, pgl_programs, pgl_program_offerings, pgl_signups, pgl_signup_payments, pgl_wheel_bookings (all class bookings), pgl_wheel_payments, pgl_campaigns, pgl_ref_counters.
-Edge Functions: notify-inquiry, notify-signup, notify-wheel, sc-complete, inquiry-digest, sync-google-hours (hours/address/phone from Google Business Profile, every 6 hrs).
+Edge Functions: notify-inquiry, notify-signup, notify-wheel, sc-complete, inquiry-digest, inquiry-action (checks the signed "Mark as" links from staff emails and changes the inquiry status), sync-google-hours (hours/address/phone from Google Business Profile, every 6 hrs).
 
 ## Auth / security
 - Public site uses the publishable key (fine to expose) with narrow RLS: anon can only read what the site shows (e.g. `website_%` settings, `branches_public`) and insert its own forms.

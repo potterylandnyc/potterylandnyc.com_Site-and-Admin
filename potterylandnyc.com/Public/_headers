@@ -3,3 +3,7 @@
 
 /contact-crown-heights.vcf
   Content-Type: text/vcard; charset=utf-8
+
+/inquiry-update
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer

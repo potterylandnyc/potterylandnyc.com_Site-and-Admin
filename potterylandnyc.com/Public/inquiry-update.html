@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<!-- v26.11.19-01 — staff "Mark as" link page for inquiry emails (no login; the signed link is the permission) -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Update inquiry — Pottery & Glass Land</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/registration.css">
+<link rel="stylesheet" href="/inquiry-update.css">
+<link href="https://fonts.googleapis.com/css2?family=Unna:wght@400;700&family=Inter:wght@200;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo">Pottery &amp; Glass Land<span>Staff</span></a>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="card success-card" id="iu-card">
+      <p id="iu-loading">Checking link&hellip;</p>
+
+      <div id="iu-ask" style="display:none;">
+        <h2>Mark as <span id="iu-action"></span>?</h2>
+        <p class="iu-subject" id="iu-subject"></p>
+        <p id="iu-name"></p>
+        <p class="iu-current">Currently: <span id="iu-current"></span></p>
+        <div class="form-error" id="iu-error"></div>
+        <button class="submit-btn" id="iu-confirm" onclick="iuApply()">Confirm</button>
+      </div>
+
+      <div id="iu-done" style="display:none;">
+        <div class="check">&#10003;</div>
+        <h2 id="iu-done-title">Done</h2>
+        <p id="iu-done-msg"></p>
+      </div>
+
+      <div id="iu-bad" style="display:none;">
+        <h2 id="iu-bad-title">This link isn't valid</h2>
+        <p id="iu-bad-msg">Open the admin to update this inquiry.</p>
+      </div>
+
+      <p class="iu-admin"><a href="https://admin.potterylandnyc.com/">Open the admin</a></p>
+    </div>
+  </div>
+</main>
+
+<script>
+const SUPABASE_URL = 'https://pehllmkuvrccfuvcskvj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_wHyJLfEuxJvIUeOAni_vyw_DGEcfHCM';
+const ACTION_FUNCTION = SUPABASE_URL + '/functions/v1/inquiry-action';
+const STATUS_LABEL = { new: 'New', contacted: 'Contacted', booked: 'Booked', archived: 'Archived' };
+const token = new URLSearchParams(window.location.search).get('t') || '';
+
+function show(id) {
+  ['iu-loading', 'iu-ask', 'iu-done', 'iu-bad'].forEach(x => { document.getElementById(x).style.display = (x === id ? 'block' : 'none'); });
+}
+async function callAction(apply) {
+  const r = await fetch(ACTION_FUNCTION, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+    body: JSON.stringify({ t: token, apply: !!apply })
+  });
+  return r.json();
+}
+function showBad(reason) {
+  if (reason === 'expired') {
+    document.getElementById('iu-bad-title').textContent = 'This link has expired';
+    document.getElementById('iu-bad-msg').textContent = 'Status links work for 7 days. Open the admin to update this inquiry.';
+  } else if (reason === 'not_found') {
+    document.getElementById('iu-bad-title').textContent = 'Inquiry not found';
+    document.getElementById('iu-bad-msg').textContent = 'It may have been deleted.';
+  }
+  show('iu-bad');
+}
+
+async function iuLoad() {
+  if (!token) return showBad('invalid');
+  let d;
+  try { d = await callAction(false); } catch (_) { d = null; }
+  if (!d || !d.ok) return showBad(d && d.reason);
+  if (d.status === d.action) {
+    document.getElementById('iu-done-title').textContent = 'Already ' + d.action_label;
+    document.getElementById('iu-done-msg').textContent = d.subject + ' — ' + d.name;
+    return show('iu-done');
+  }
+  document.getElementById('iu-action').textContent = d.action_label;
+  document.getElementById('iu-subject').textContent = d.subject;
+  document.getElementById('iu-name').textContent = d.name;
+  document.getElementById('iu-current').textContent = STATUS_LABEL[d.status] || d.status;
+  show('iu-ask');
+}
+
+async function iuApply() {
+  const btn = document.getElementById('iu-confirm');
+  const err = document.getElementById('iu-error');
+  btn.disabled = true; btn.textContent = 'Saving…'; err.style.display = 'none';
+  let d;
+  try { d = await callAction(true); } catch (_) { d = null; }
+  if (d && d.ok && d.done) {
+    document.getElementById('iu-done-title').textContent = 'Marked ' + d.action_label;
+    document.getElementById('iu-done-msg').textContent = d.subject + ' — ' + d.name;
+    return show('iu-done');
+  }
+  if (d && (d.reason === 'expired' || d.reason === 'invalid' || d.reason === 'not_found')) return showBad(d.reason);
+  err.textContent = 'Something went wrong. Please try again, or update it in the admin.';
+  err.style.display = 'block';
+  btn.disabled = false; btn.textContent = 'Confirm';
+}
+
+iuLoad();
+</script>
+</body>
+</html>

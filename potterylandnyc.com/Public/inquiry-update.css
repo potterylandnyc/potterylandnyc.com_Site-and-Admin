@@ -1,0 +1,8 @@
+/* inquiry-update.css — staff "Mark as" link page (shared bits live in styles.css / registration.css) */
+:root { --max-width: 480px; --container-padding: 20px; }
+
+.iu-subject { font-weight: 600; color: var(--color-primary); }
+.iu-current { font-size: 13px; }
+#iu-ask .submit-btn { margin-top: 16px; }
+.iu-admin { margin-top: 22px; font-size: 13px; }
+.iu-admin a { color: var(--color-accent); text-decoration: underline; }
